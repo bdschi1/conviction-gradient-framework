@@ -1,0 +1,81 @@
+# === Secrets ===
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*credentials*
+secrets.toml
+secrets.yaml
+secrets.json
+
+# === Python ===
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg-info/
+*.egg
+dist/
+build/
+.eggs/
+venv/
+.venv/
+env/
+
+# === Testing / IDE ===
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+htmlcov/
+.coverage
+.hypothesis/
+*.log
+
+# === IDE ===
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# === OS ===
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# === Build / dist ===
+*.whl
+*.tar.gz
+
+# === Model weights / large files ===
+offload_temp/
+*.pt
+*.bin
+*.safetensors
+*.gguf
+hf_cache/
+
+# === Results / Outputs ===
+results/
+outputs/
+logs/
+exports/
+
+# === Data ===
+data_cache/
+*.db
+
+# === Internal docs ===
+HOW_IT_WORKS.md
+
+# === Claude Code ===
+.claude/
+
+# === Jupyter ===
+.ipynb_checkpoints/
+
+# === Examples (keep template) ===
+examples/*
+!examples/configs/
+!examples/TEMPLATE.md

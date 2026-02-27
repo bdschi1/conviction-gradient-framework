@@ -1,0 +1,32 @@
+# Fundamental Violation Score — Event Taxonomy
+# Maps event types to base severity scores (0-1).
+# Higher severity = more material thesis breach.
+
+event_types:
+  mgmt_change:
+    base_severity: 0.6
+    description: "CEO/CFO departure or replacement"
+
+  guidance_cut:
+    base_severity: 0.5
+    description: "Revenue or earnings guidance reduced"
+
+  kpi_miss:
+    base_severity: 0.4
+    description: "Key performance indicator missed consensus"
+
+  capital_allocation:
+    base_severity: 0.5
+    description: "Major M&A, buyback suspension, dividend cut"
+
+  governance_breach:
+    base_severity: 0.8
+    description: "Board conflict, audit concern, regulatory action"
+
+  business_model_change:
+    base_severity: 0.9
+    description: "Fundamental change to revenue model or strategy"
+
+  accounting_restatement:
+    base_severity: 0.7
+    description: "Financial restatement or audit qualification"

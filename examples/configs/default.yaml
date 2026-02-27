@@ -1,0 +1,46 @@
+# Conviction Gradient Framework — Default Parameters
+# These can be overridden per-strategy or per-instrument.
+
+conviction:
+  # Loss weights (must sum to 1.0 for interpretability)
+  w1: 0.30    # Forecast Error
+  w2: 0.25    # Fundamental Violation
+  w3: 0.25    # Risk Regime Shift
+  w4: 0.20    # Adversarial Debate Shift
+
+  # Gradient scaling
+  lambda1: 1.0
+  lambda2: 1.0
+  lambda3: 1.0
+  lambda4: 1.0
+
+  # Learning rate
+  kappa: 0.1
+  alpha_min: 0.01
+  alpha_max: 0.5
+
+  # Update rule
+  beta: 0.1     # Momentum stabilizer
+  phi: 0.95     # AR(1) persistence
+  C_max: 5.0    # Conviction clamp
+
+  # Failure modes
+  flip_window_days: 5
+  fvs_reset_threshold: 0.7
+  vol_double_threshold: 2.0
+
+sizing:
+  max_gross_exposure: 2.0
+  max_net_exposure: 0.5
+  max_position_pct: 0.05
+  min_position_pct: 0.005
+  max_sector_net: 0.25
+
+policy:
+  mandatory_adversarial: true
+  fvs_reset_threshold: 0.7
+  vol_double_trigger: 2.0
+  min_fe_std_trigger: 2.0
+  oscillation_window_days: 5
+  min_participants_for_ads: 2
+  require_pre_post_probabilities: true
