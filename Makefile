@@ -1,4 +1,4 @@
-.PHONY: test lint fmt clean install dev api
+.PHONY: test lint fmt clean install dev api ui
 
 test:
 	pytest tests/ -v
@@ -21,6 +21,9 @@ dev:
 
 api:
 	uvicorn api.main:app --reload --port 8000
+
+ui:
+	streamlit run app.py
 
 clean:
 	find . -type d -name __pycache__ -exec rm -rf {} + 2>/dev/null || true

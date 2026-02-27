@@ -7,7 +7,15 @@ from sizing.failure_modes import (
     check_oscillation_guard,
     check_structural_reset,
 )
-from sizing.mapper import SizingMethod, basic_mapping, map_convictions, vol_adjusted_mapping
+from sizing.mapper import (
+    SizingMethod,
+    basic_mapping,
+    kelly_mapping,
+    map_convictions,
+    risk_parity_mapping,
+    tiered_mapping,
+    vol_adjusted_mapping,
+)
 
 # --- Mapper ---
 
@@ -71,6 +79,180 @@ class TestMapConvictions:
     def test_vol_adjusted_requires_vols(self):
         with pytest.raises(ValueError, match="vols required"):
             map_convictions({"A": 1.0}, method=SizingMethod.VOL_ADJUSTED)
+
+    def test_kelly_method(self):
+        weights = map_convictions(
+            {"A": 2.0, "B": -1.0},
+            method=SizingMethod.KELLY,
+            vols={"A": 0.20, "B": 0.30},
+            expected_returns={"A": 0.10, "B": 0.05},
+        )
+        assert "A" in weights
+        assert "B" in weights
+
+    def test_kelly_requires_vols(self):
+        with pytest.raises(ValueError, match="vols required"):
+            map_convictions({"A": 1.0}, method=SizingMethod.KELLY, expected_returns={"A": 0.1})
+
+    def test_kelly_requires_expected_returns(self):
+        with pytest.raises(ValueError, match="expected_returns required"):
+            map_convictions({"A": 1.0}, method=SizingMethod.KELLY, vols={"A": 0.2})
+
+    def test_risk_parity_method(self):
+        weights = map_convictions(
+            {"A": 2.0, "B": 1.0},
+            method=SizingMethod.RISK_PARITY,
+            vols={"A": 0.20, "B": 0.30},
+        )
+        assert sum(abs(w) for w in weights.values()) == pytest.approx(1.0)
+
+    def test_risk_parity_requires_vols(self):
+        with pytest.raises(ValueError, match="vols required"):
+            map_convictions({"A": 1.0}, method=SizingMethod.RISK_PARITY)
+
+    def test_tiered_method(self):
+        weights = map_convictions(
+            {"A": 4.0, "B": 2.0, "C": 0.5},
+            method=SizingMethod.TIERED,
+        )
+        assert sum(abs(w) for w in weights.values()) == pytest.approx(1.0)
+
+
+# --- Kelly ---
+
+
+class TestKellyMapping:
+    def test_empty(self):
+        assert kelly_mapping({}, {}, {}) == {}
+
+    def test_single_long(self):
+        weights = kelly_mapping(
+            {"AAPL": 3.0},
+            {"AAPL": 0.10},
+            {"AAPL": 0.20},
+        )
+        assert weights["AAPL"] == pytest.approx(1.0)
+
+    def test_higher_conviction_larger_weight(self):
+        weights = kelly_mapping(
+            {"A": 4.0, "B": 1.0},
+            {"A": 0.10, "B": 0.10},
+            {"A": 0.20, "B": 0.20},
+        )
+        assert abs(weights["A"]) > abs(weights["B"])
+
+    def test_short_negative_weight(self):
+        weights = kelly_mapping(
+            {"A": 2.0, "B": -2.0},
+            {"A": 0.10, "B": 0.10},
+            {"A": 0.20, "B": 0.20},
+        )
+        assert weights["A"] > 0
+        assert weights["B"] < 0
+
+    def test_half_kelly_reduces(self):
+        full = kelly_mapping(
+            {"A": 2.0}, {"A": 0.10}, {"A": 0.20}, half_kelly=False
+        )
+        half = kelly_mapping(
+            {"A": 2.0}, {"A": 0.10}, {"A": 0.20}, half_kelly=True
+        )
+        # Both normalize to 1.0 for single position, so check raw ratio isn't affected
+        assert full["A"] == pytest.approx(1.0)
+        assert half["A"] == pytest.approx(1.0)
+
+    def test_sum_abs_weights_one(self):
+        weights = kelly_mapping(
+            {"A": 3.0, "B": -2.0, "C": 1.0},
+            {"A": 0.10, "B": 0.05, "C": 0.08},
+            {"A": 0.20, "B": 0.30, "C": 0.15},
+        )
+        assert sum(abs(w) for w in weights.values()) == pytest.approx(1.0)
+
+    def test_zero_conviction(self):
+        weights = kelly_mapping({"A": 0.0}, {"A": 0.10}, {"A": 0.20})
+        assert weights["A"] == pytest.approx(0.0)
+
+
+# --- Risk Parity ---
+
+
+class TestRiskParityMapping:
+    def test_empty(self):
+        assert risk_parity_mapping({}, {}) == {}
+
+    def test_single_position(self):
+        weights = risk_parity_mapping({"AAPL": 3.0}, {"AAPL": 0.20})
+        assert weights["AAPL"] == pytest.approx(1.0)
+
+    def test_higher_vol_smaller_weight(self):
+        weights = risk_parity_mapping(
+            {"A": 2.0, "B": 2.0},
+            {"A": 0.10, "B": 0.40},
+        )
+        assert abs(weights["A"]) > abs(weights["B"])
+
+    def test_conviction_scaling(self):
+        weights = risk_parity_mapping(
+            {"A": 4.0, "B": 1.0},
+            {"A": 0.20, "B": 0.20},
+        )
+        # Higher conviction should get larger weight
+        assert abs(weights["A"]) > abs(weights["B"])
+
+    def test_short_negative_weight(self):
+        weights = risk_parity_mapping(
+            {"A": 2.0, "B": -2.0},
+            {"A": 0.20, "B": 0.20},
+        )
+        assert weights["A"] > 0
+        assert weights["B"] < 0
+
+    def test_sum_abs_weights_one(self):
+        weights = risk_parity_mapping(
+            {"A": 3.0, "B": -2.0, "C": 1.0},
+            {"A": 0.20, "B": 0.30, "C": 0.15},
+        )
+        assert sum(abs(w) for w in weights.values()) == pytest.approx(1.0)
+
+    def test_zero_conviction_returns_zero(self):
+        weights = risk_parity_mapping({"A": 0.0, "B": 0.0}, {"A": 0.20, "B": 0.30})
+        assert weights["A"] == pytest.approx(0.0)
+
+
+# --- Tiered ---
+
+
+class TestTieredMapping:
+    def test_empty(self):
+        assert tiered_mapping({}) == {}
+
+    def test_high_conviction_tier(self):
+        weights = tiered_mapping({"A": 4.0, "B": 2.0, "C": 0.5})
+        # A (high) should get the largest weight, C (low) the smallest
+        assert abs(weights["A"]) > abs(weights["B"]) > abs(weights["C"])
+
+    def test_short_preserves_sign(self):
+        weights = tiered_mapping({"A": 3.0, "B": -3.0})
+        assert weights["A"] > 0
+        assert weights["B"] < 0
+        assert abs(weights["A"]) == pytest.approx(abs(weights["B"]))
+
+    def test_zero_conviction(self):
+        weights = tiered_mapping({"A": 0.0, "B": 2.0})
+        assert weights["A"] == pytest.approx(0.0)
+        assert weights["B"] == pytest.approx(1.0)
+
+    def test_sum_abs_weights_one(self):
+        weights = tiered_mapping({"A": 5.0, "B": -2.0, "C": 0.8})
+        assert sum(abs(w) for w in weights.values()) == pytest.approx(1.0)
+
+    def test_tier_boundaries(self):
+        # Exactly at boundary: 3.0 should be high, 1.5 medium
+        weights = tiered_mapping({"A": 3.0, "B": 1.5})
+        # Both above thresholds — A gets 4.5% raw, B gets 2.5% raw
+        ratio = abs(weights["A"]) / abs(weights["B"])
+        assert ratio == pytest.approx(0.045 / 0.025)
 
 
 # --- Constraints ---

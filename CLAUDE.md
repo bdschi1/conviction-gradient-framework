@@ -26,6 +26,10 @@ cgf health
 # API
 pip install -e ".[api]"
 make api
+
+# UI (Streamlit)
+pip install -e ".[ui]"
+make ui
 ```
 
 ## Architecture
