@@ -98,3 +98,5 @@ pytest tests/ -v    # Full suite
 make lint           # Ruff linter
 make fmt            # Auto-format
 ```
+
+***Curiosity compounds. Rigor endures.***
