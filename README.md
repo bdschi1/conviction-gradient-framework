@@ -4,14 +4,13 @@ A system that turns investment conviction into a quantitative state variable, up
 
 In plain English: instead of treating conviction as a vague label ("high conviction" or "low conviction"), CGF computes a numeric score per position based on how much the thesis is holding up against new data. When the thesis deteriorates — missed forecasts, structural breaks, adversarial debate — conviction adjusts down. When it holds or improves, conviction adjusts up. That score drives position sizing.
 
-## What it does
+**Key questions this project answers:**
+- *How should conviction change when new data arrives?*
+- *How do you map conviction into portfolio weights under risk constraints?*
 
-- **Conviction engine**: Computes and updates per-position conviction scores using four signals — forecast error, fundamental thesis violations, volatility regime shifts, and IC debate outcomes.
-- **Position sizing overlay**: Maps conviction into portfolio weights, then applies gross/net, sector, and concentration constraints via constrained optimization.
-- **IC governance**: Structures investment committee debate into quantitative signals (pre/post anonymous probability submissions, adversarial debate shifts).
-- **Evaluation**: Scores analysts and AI agents on calibration (Brier score), update alignment, and error attribution.
+---
 
-## Setup
+## Quick Start
 
 ```bash
 cd conviction-gradient-framework
@@ -26,8 +25,6 @@ pip install -e ".[api]"        # FastAPI endpoints
 pip install -e ".[bloomberg]"  # Bloomberg data provider
 pip install -e ".[ibkr]"       # Interactive Brokers
 ```
-
-## Usage
 
 ### CLI
 ```bash
@@ -55,6 +52,50 @@ data = InstrumentData(
 updated = run_single_update(current, data)
 ```
 
+---
+
+## How It Works
+
+### Conviction Engine
+
+Computes and updates per-position conviction scores using four signals — forecast error, fundamental thesis violations, volatility regime shifts, and IC debate outcomes.
+
+### Position Sizing Overlay
+
+Maps conviction into portfolio weights, then applies gross/net, sector, and concentration constraints via constrained optimization.
+
+### IC Governance
+
+Structures investment committee debate into quantitative signals (pre/post anonymous probability submissions, adversarial debate shifts).
+
+### Evaluation
+
+Scores analysts and AI agents on calibration (Brier score), update alignment, and error attribution.
+
+### Core Equations
+
+The conviction update follows a gradient-descent-with-momentum rule:
+
+**C_{t+1} = C_t - alpha_t * gradient_L + beta * (C_t - C_{t-1})**
+
+Where:
+- **C_t**: conviction at time t (risk-adjusted expected return: E[R] / sigma_idio)
+- **alpha_t**: adaptive learning rate (adjusts for vol regime, information half-life, analyst track record)
+- **gradient_L**: weighted sum of forecast error, thesis violations, vol shifts, and debate shifts
+- **beta**: momentum stabilizer to prevent oscillation
+
+In plain terms: conviction moves toward better estimates at a pace that depends on how noisy the environment is and how trusted the analyst is. If volatility spikes, conviction responds more quickly. If the analyst has a strong track record, the system gives their existing view more inertia.
+
+### Integration
+
+When installed alongside other Tier_1 repos, CGF auto-detects and bridges to:
+- **financial-data-providers**: market data (returns, vol)
+- **multi-agent-investment-committee**: IC outputs feed ADS and FVS components
+- **backtest-lab**: conviction trajectories usable as backtest signals
+- **ls-portfolio-lab**: conviction-derived weights feed into portfolio construction
+
+---
+
 ## Architecture
 
 ```
@@ -69,27 +110,7 @@ config/       Pydantic settings and default hyperparameters
 api/          FastAPI endpoints
 ```
 
-## Core equations
-
-The conviction update follows a gradient-descent-with-momentum rule:
-
-**C_{t+1} = C_t - alpha_t * gradient_L + beta * (C_t - C_{t-1})**
-
-Where:
-- **C_t**: conviction at time t (risk-adjusted expected return: E[R] / sigma_idio)
-- **alpha_t**: adaptive learning rate (adjusts for vol regime, information half-life, analyst track record)
-- **gradient_L**: weighted sum of forecast error, thesis violations, vol shifts, and debate shifts
-- **beta**: momentum stabilizer to prevent oscillation
-
-In plain terms: conviction moves toward better estimates at a pace that depends on how noisy the environment is and how trusted the analyst is. If volatility spikes, conviction responds more quickly. If the analyst has a strong track record, the system gives their existing view more inertia.
-
-## Integration
-
-When installed alongside other Tier_1 repos, CGF auto-detects and bridges to:
-- **financial-data-providers**: market data (returns, vol)
-- **multi-agent-investment-committee**: IC outputs feed ADS and FVS components
-- **backtest-lab**: conviction trajectories usable as backtest signals
-- **ls-portfolio-lab**: conviction-derived weights feed into portfolio construction
+---
 
 ## Testing
 
@@ -98,5 +119,13 @@ pytest tests/ -v    # Full suite
 make lint           # Ruff linter
 make fmt            # Auto-format
 ```
+
+## Contributing
+
+Under active development. Contributions welcome — areas for improvement include loss components, governance workflows, evaluation metrics, and cross-repo bridge integrations.
+
+## License
+
+MIT
 
 ***Curiosity compounds. Rigor endures.***
