@@ -74,15 +74,32 @@ Scores analysts and AI agents on calibration (Brier score), update alignment, an
 
 ### Core Equations
 
-The conviction update follows a gradient-descent-with-momentum rule:
+**Conviction update** — gradient descent with momentum, clipped to $[-C_{\max},\, C_{\max}]$:
 
-**C_{t+1} = C_t - alpha_t * gradient_L + beta * (C_t - C_{t-1})**
+$$C_{t+1} = C_t \;-\; \alpha_t \, \nabla L_t \;+\; \beta \left( C_t - C_{t-1} \right)$$
 
-Where:
-- **C_t**: conviction at time t (risk-adjusted expected return: E[R] / sigma_idio)
-- **alpha_t**: adaptive learning rate (adjusts for vol regime, information half-life, analyst track record)
-- **gradient_L**: weighted sum of forecast error, thesis violations, vol shifts, and debate shifts
-- **beta**: momentum stabilizer to prevent oscillation
+**Total thesis loss** — weighted combination of four stress signals:
+
+$$L_t = w_1 \, FE_t^{\,2} \;+\; w_2 \, FVS_t \;+\; w_3 \, RRS_t \;+\; w_4 \, ADS_t$$
+
+**Loss gradient** — direction and magnitude of thesis deterioration:
+
+$$\nabla L_t = \lambda_1 \, FE_t \;+\; \lambda_2 \, FVS_t \;+\; \lambda_3 \, RRS_t \;+\; \lambda_4 \, ADS_t$$
+
+**Adaptive learning rate** — scales conviction elasticity to information quality:
+
+$$\alpha_t = \frac{\kappa}{1 + \tau} \;\cdot\; \frac{\sigma_{\text{idio}}}{\sigma_{\text{expected}}} \;\cdot\; \frac{1}{1 + s} \qquad \alpha_t \in [\alpha_{\min},\, \alpha_{\max}]$$
+
+where $\tau$ is information half-life and $s$ is analyst track-record score.
+
+**Loss components:**
+
+| Component | Formula | Interpretation |
+|-----------|---------|----------------|
+| Forecast Error | $FE_t = \dfrac{R_t - E[R_t]}{\sigma_{\text{expected}}}$ | Standardized return miss |
+| Fundamental Violation | $FVS_t = \max(\text{severity}_i) + \min\!\left(0.2,\; 0.05 \cdot n_{\text{events}}\right)$ | Thesis-breaking events (0–1) |
+| Risk Regime Shift | $RRS_t = \dfrac{\sigma_t^{\text{idio}} - \sigma_{t-1}^{\text{idio}}}{\sigma_{t-1}^{\text{idio}}} + \dfrac{IV_t - HV_t}{HV_t}$ | Vol regime change + IV-HV spread |
+| Adversarial Debate Shift | $ADS_t = \bar{p}_{\text{post}} - \bar{p}_{\text{pre}}$ | IC probability shift during debate |
 
 In plain terms: conviction moves toward better estimates at a pace that depends on how noisy the environment is and how trusted the analyst is. If volatility spikes, conviction responds more quickly. If the analyst has a strong track record, the system gives their existing view more inertia.
 

@@ -49,6 +49,7 @@ class VolMethod(Enum):
     FF3 = "ff3"
     EWMA = "ewma"
     GARCH = "garch"
+    HAR = "har"
 
 
 def is_available() -> bool:
@@ -360,6 +361,91 @@ def compute_idio_vol_garch(
     return float(idio_vol)
 
 
+def compute_idio_vol_har(
+    ticker_returns: list[float],
+    market_returns: list[float],
+    window_d: int = 1,
+    window_w: int = 5,
+    window_m: int = 22,
+    annualize: bool = True,
+) -> float:
+    """HAR (Heterogeneous Autoregressive) idiosyncratic volatility.
+
+    Reference: Corsi 2009; Bekaert, Bergbrant & Kassa, JFE 2025.
+
+    Decomposes realized variance into daily, weekly, and monthly horizons,
+    then uses OLS to forecast next-period variance. Captures the multi-horizon
+    volatility clustering that single-window methods miss.
+
+    Falls back to EWMA if fewer than 2 * window_m observations available.
+
+    Args:
+        ticker_returns: Daily returns for the ticker.
+        market_returns: Daily returns for the market index.
+        window_d: Daily horizon (default 1).
+        window_w: Weekly horizon (default 5 trading days).
+        window_m: Monthly horizon (default 22 trading days).
+        annualize: Whether to annualize (multiply by sqrt(252)).
+
+    Returns:
+        HAR idiosyncratic volatility estimate.
+    """
+    min_obs = 2 * window_m  # Need at least 44 obs for meaningful HAR
+    n = min(len(ticker_returns), len(market_returns))
+
+    if n < min_obs:
+        return compute_idio_vol_ewma(ticker_returns, market_returns, annualize=annualize)
+
+    # Step 1: CAPM residuals
+    ri = np.array(ticker_returns[:n])
+    rm = np.array(market_returns[:n])
+    slope, intercept, _, _, _ = stats.linregress(rm, ri)
+    residuals = ri - (intercept + slope * rm)
+
+    # Step 2: Squared residuals (realized variance proxy)
+    sq_resid = residuals**2
+
+    # Step 3: Rolling averages at 3 horizons
+    rv_d = sq_resid  # Daily RV = squared residual
+    rv_w = np.array([
+        np.mean(sq_resid[max(0, i - window_w + 1) : i + 1])
+        for i in range(n)
+    ])
+    rv_m = np.array([
+        np.mean(sq_resid[max(0, i - window_m + 1) : i + 1])
+        for i in range(n)
+    ])
+
+    # Step 4: OLS regression — RV_{t+1} = c + b_d * RV_d_t + b_w * RV_w_t + b_m * RV_m_t
+    # Use observations from window_m onward (so all rolling windows are full)
+    start = window_m
+    y = rv_d[start + 1:]  # Next-period daily RV
+    x_d = rv_d[start:-1]
+    x_w = rv_w[start:-1]
+    x_m = rv_m[start:-1]
+
+    if len(y) < 10:
+        return compute_idio_vol_ewma(ticker_returns, market_returns, annualize=annualize)
+
+    design = np.column_stack([np.ones(len(y)), x_d, x_w, x_m])
+    try:
+        betas, _, _, _ = np.linalg.lstsq(design, y, rcond=None)
+    except np.linalg.LinAlgError:
+        return compute_idio_vol_ewma(ticker_returns, market_returns, annualize=annualize)
+
+    # Step 5: Forecast next-period variance using latest values
+    forecast_var = betas[0] + betas[1] * rv_d[-1] + betas[2] * rv_w[-1] + betas[3] * rv_m[-1]
+
+    # Floor at zero (forecast can go negative with OLS)
+    forecast_var = max(forecast_var, 1e-10)
+    idio_vol = float(np.sqrt(forecast_var))
+
+    if annualize:
+        idio_vol *= np.sqrt(252)
+
+    return idio_vol
+
+
 def compute_idio_vol(
     method: VolMethod,
     ticker_returns: list[float],
@@ -384,6 +470,8 @@ def compute_idio_vol(
         return compute_idio_vol_ewma(ticker_returns, market_returns, annualize=annualize)
     if method == VolMethod.GARCH:
         return compute_idio_vol_garch(ticker_returns, market_returns, annualize)
+    if method == VolMethod.HAR:
+        return compute_idio_vol_har(ticker_returns, market_returns, annualize=annualize)
     # Default: CAPM
     return compute_idio_vol_capm(ticker_returns, market_returns, annualize)
 

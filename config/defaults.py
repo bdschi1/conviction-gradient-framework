@@ -46,6 +46,28 @@ class ConvictionParams(BaseModel):
         default=2.0, gt=1, description="Vol ratio threshold for structural reset"
     )
 
+    # Adaptive loss weights
+    adaptive_weights: bool = Field(
+        default=False, description="Enable adaptive component weight learning"
+    )
+    adaptive_lookback: int = Field(
+        default=63, ge=10, description="Lookback window for adaptive weight estimation (days)"
+    )
+    adaptive_decay: float = Field(
+        default=0.97, ge=0.5, le=0.999, description="EMA decay for adaptive weight updates"
+    )
+
+    # Continuous regime detection
+    continuous_regime: bool = Field(
+        default=False, description="Enable continuous regime-aware RRS scaling"
+    )
+    regime_vol_threshold: float = Field(
+        default=1.5, gt=1.0, description="Vol multiple for high-vol regime detection"
+    )
+    regime_transition_penalty: float = Field(
+        default=0.1, ge=0, le=0.5, description="Penalty on regime transitions (anti-whipsaw)"
+    )
+
 
 class SizingParams(BaseModel):
     """Parameters for the position sizing overlay."""

@@ -73,6 +73,42 @@ def cmd_trajectory(args: argparse.Namespace) -> None:
     db.close()
 
 
+def cmd_validate(args: argparse.Namespace) -> None:
+    """Run validation harness over synthetic data."""
+    from validation.report import (
+        format_ablation_summary,
+        format_comparison_table,
+        format_multi_seed_summary,
+        format_signal_summary,
+    )
+    from validation.runner import (
+        run_signal_validation_multi_seed,
+        run_validation_multi_seed,
+    )
+
+    n_seeds = args.seeds
+    n_days = args.days
+
+    if args.signal:
+        print(f"Running signal-embedded validation ({n_seeds} seeds, {n_days} days)...\n")
+        results = run_signal_validation_multi_seed(
+            n_seeds=n_seeds, n_days=n_days,
+        )
+        print(format_comparison_table(results[0]))
+        print()
+        print(format_ablation_summary(results[0]))
+        print()
+        print(format_signal_summary(results))
+    else:
+        print(f"Running validation ({n_seeds} seeds, {n_days} days each)...\n")
+        results = run_validation_multi_seed(n_seeds=n_seeds, n_days=n_days)
+        print(format_comparison_table(results[0]))
+        print()
+        print(format_ablation_summary(results[0]))
+        print()
+        print(format_multi_seed_summary(results))
+
+
 def cmd_health(args: argparse.Namespace) -> None:
     """Show database health stats."""
     from storage.database import ConvictionDB
@@ -121,6 +157,15 @@ def main() -> None:
     p_traj.add_argument("--start", help="Start date (YYYY-MM-DD)")
     p_traj.add_argument("--end", help="End date (YYYY-MM-DD)")
 
+    # validate
+    p_validate = subparsers.add_parser("validate", help="Run validation harness")
+    p_validate.add_argument("--seeds", type=int, default=5, help="Number of random seeds")
+    p_validate.add_argument("--days", type=int, default=504, help="Trading days per seed")
+    p_validate.add_argument(
+        "--signal", action="store_true",
+        help="Use signal-embedded synthetic data (tests component value)",
+    )
+
     # health
     subparsers.add_parser("health", help="Show database health")
 
@@ -135,6 +180,8 @@ def main() -> None:
         cmd_update(args)
     elif args.command == "trajectory":
         cmd_trajectory(args)
+    elif args.command == "validate":
+        cmd_validate(args)
     elif args.command == "health":
         cmd_health(args)
     else:

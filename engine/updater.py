@@ -53,6 +53,8 @@ def run_single_update(
     data: InstrumentData,
     params: ConvictionParams | None = None,
     taxonomy: FVSTaxonomy | None = None,
+    regime_detector: object | None = None,
+    adaptive_tracker: object | None = None,
 ) -> ConvictionState:
     """Run a full conviction update for one instrument.
 
@@ -64,6 +66,8 @@ def run_single_update(
         data: New data for this instrument.
         params: Hyperparameters.
         taxonomy: FVS event taxonomy.
+        regime_detector: Optional RegimeDetector for continuous regime-aware RRS.
+        adaptive_tracker: Optional AdaptiveWeightTracker for dynamic loss weights.
 
     Returns:
         New ConvictionState with updated conviction.
@@ -74,16 +78,32 @@ def run_single_update(
     fe = compute_fe(data.realized_return, data.expected_return, data.sigma_expected)
     fvs_events = [FVSEvent(**e) if isinstance(e, dict) else e for e in data.fvs_events]
     fvs = compute_fvs(fvs_events, taxonomy)
-    rrs = compute_rrs(
-        data.sigma_idio_current,
-        data.sigma_idio_prev,
-        data.implied_vol,
-        data.historical_vol,
-    )
+
+    # RRS: use regime detector if provided and enabled
+    if regime_detector is not None and p.continuous_regime:
+        regime_detector.update(data.sigma_idio_current)
+        rrs = regime_detector.compute_rrs(
+            data.sigma_idio_current,
+            data.sigma_idio_prev,
+            data.implied_vol,
+            data.historical_vol,
+        )
+    else:
+        rrs = compute_rrs(
+            data.sigma_idio_current,
+            data.sigma_idio_prev,
+            data.implied_vol,
+            data.historical_vol,
+        )
     ads = compute_ads(data.p_pre, data.p_post)
 
+    # Get adaptive weight overrides if tracker is active
+    weight_overrides = None
+    if adaptive_tracker is not None and p.adaptive_weights:
+        weight_overrides = adaptive_tracker.get_weights(data.instrument_id)
+
     # Compute loss and gradient
-    loss = compute_loss(fe, fvs, rrs, ads, p)
+    loss = compute_loss(fe, fvs, rrs, ads, p, weight_overrides=weight_overrides)
 
     alpha_t = compute_learning_rate(
         kappa=p.kappa,
@@ -99,6 +119,14 @@ def run_single_update(
 
     # Update conviction
     new_c = update_conviction(current, gradient.gradient_value, alpha_t, p.beta, p.C_max)
+
+    # Record component values for adaptive tracker
+    if adaptive_tracker is not None and p.adaptive_weights:
+        adaptive_tracker.record(
+            data.instrument_id,
+            {"fe": fe, "fvs": fvs, "rrs": rrs, "ads": ads},
+            data.realized_return,
+        )
 
     return ConvictionState(
         instrument_id=data.instrument_id,

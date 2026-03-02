@@ -18,6 +18,7 @@ def compute_loss(
     rrs: float,
     ads: float,
     params: ConvictionParams | None = None,
+    weight_overrides: dict[str, float] | None = None,
 ) -> LossComponents:
     """Compute total thesis loss from individual components.
 
@@ -27,13 +28,20 @@ def compute_loss(
         rrs: Risk Regime Shift.
         ads: Adversarial Debate Shift.
         params: Hyperparameters with loss weights w1-w4.
+        weight_overrides: Optional dict with keys 'w1','w2','w3','w4' to override
+            params weights. Used by adaptive weight system.
 
     Returns:
         LossComponents with per-component values and total.
     """
     p = params or ConvictionParams()
 
-    total = p.w1 * (fe ** 2) + p.w2 * fvs + p.w3 * rrs + p.w4 * ads
+    w1 = weight_overrides.get("w1", p.w1) if weight_overrides else p.w1
+    w2 = weight_overrides.get("w2", p.w2) if weight_overrides else p.w2
+    w3 = weight_overrides.get("w3", p.w3) if weight_overrides else p.w3
+    w4 = weight_overrides.get("w4", p.w4) if weight_overrides else p.w4
+
+    total = w1 * (fe ** 2) + w2 * fvs + w3 * rrs + w4 * ads
 
     return LossComponents(
         fe=fe,

@@ -49,6 +49,7 @@ packages = [
     "storage",
     "config",
     "api",
+    "validation",
 ]
 
 [tool.pytest.ini_options]
@@ -77,4 +78,5 @@ known-first-party = [
     "storage",
     "config",
     "api",
+    "validation",
 ]

@@ -1,4 +1,4 @@
-.PHONY: test lint fmt clean install dev api ui
+.PHONY: test lint fmt clean install dev api ui validate
 
 test:
 	pytest tests/ -v
@@ -24,6 +24,9 @@ api:
 
 ui:
 	streamlit run app.py
+
+validate:
+	cgf validate
 
 clean:
 	find . -type d -name __pycache__ -exec rm -rf {} + 2>/dev/null || true
