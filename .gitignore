@@ -65,6 +65,7 @@ exports/
 
 # === Data ===
 data_cache/
+.cgf_cache/
 *.db
 
 # === Internal docs ===

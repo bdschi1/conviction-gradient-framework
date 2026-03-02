@@ -54,7 +54,7 @@ class ConvictionDB:
             INSERT OR REPLACE INTO conviction_states
             (instrument_id, as_of_date, conviction, conviction_prev,
              expected_return, idiosyncratic_vol, alpha_t,
-             fe, fvs, rrs, ads, total_loss, gradient_value, learning_rate)
+             fe, fvs, rrs, its, total_loss, gradient_value, learning_rate)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
@@ -68,7 +68,7 @@ class ConvictionDB:
                 loss.fe if loss else None,
                 loss.fvs if loss else None,
                 loss.rrs if loss else None,
-                loss.ads if loss else None,
+                loss.its if loss else None,
                 loss.total_loss if loss else None,
                 grad.gradient_value if grad else None,
                 grad.learning_rate if grad else None,
@@ -167,7 +167,7 @@ class ConvictionDB:
         status: str,
         red_team_analyst: str | None = None,
         notes: str = "",
-        ads_value: float | None = None,
+        its_value: float | None = None,
     ) -> None:
         """Save or update an IC session."""
         conn = self._get_conn()
@@ -175,12 +175,12 @@ class ConvictionDB:
             """
             INSERT OR REPLACE INTO ic_sessions
             (session_id, instrument_id, session_date, status,
-             red_team_analyst, notes, ads_value)
+             red_team_analyst, notes, its_value)
             VALUES (?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 session_id, instrument_id, session_date.isoformat(),
-                status, red_team_analyst, notes, ads_value,
+                status, red_team_analyst, notes, its_value,
             ),
         )
         conn.commit()

@@ -1,7 +1,9 @@
 """Bridge to multi-agent-investment-committee (MAIC).
 
 Consumes MAIC CommitteeResult outputs to extract:
-- ADS (Adversarial Debate Shift) from conviction timelines
+- ITS (Independent Thesis Shift) from conviction timelines
+- PM conviction and analyst convictions for rich ITS mode
+- Position type classification
 - FVS events from risk manager analysis
 - Conviction snapshots for tracking
 
@@ -51,18 +53,30 @@ def is_available() -> bool:
     return _ensure_maic()
 
 
-def extract_ads(committee_result: object) -> float:
-    """Extract Adversarial Debate Shift from a CommitteeResult.
+def extract_its(committee_result: object) -> float:
+    """Extract Independent Thesis Shift from a CommitteeResult.
 
-    Computes the mean conviction shift from Initial Analysis to
-    Post-Debate/PM Decision phases.
+    Uses PM conviction vs analyst convictions when available (rich mode).
+    Falls back to pre/post debate conviction shift.
 
     Args:
         committee_result: A MAIC CommitteeResult object.
 
     Returns:
-        ADS value (positive = conviction increased through debate).
+        ITS value (positive = thesis challenged, negative = confirmed).
     """
+    from components.thesis_shift import compute_its
+
+    pm_conv = extract_pm_conviction(committee_result)
+    analyst_convs = extract_analyst_convictions(committee_result)
+
+    if pm_conv is not None and analyst_convs:
+        return compute_its(
+            pm_conviction=pm_conv,
+            analyst_convictions=analyst_convs,
+        )
+
+    # Fallback: use timeline pre/post shift
     timeline = getattr(committee_result, "conviction_timeline", [])
     if not timeline:
         return 0.0
@@ -85,9 +99,99 @@ def extract_ads(committee_result: object) -> float:
         return 0.0
 
     # MAIC uses 0-10 scale; normalize to 0-1 for CGF
-    pre_mean = sum(pre_scores) / len(pre_scores) / 10.0
-    post_mean = sum(post_scores) / len(post_scores) / 10.0
-    return post_mean - pre_mean
+    p_pre = [s / 10.0 for s in pre_scores]
+    p_post = [s / 10.0 for s in post_scores]
+    return compute_its(p_pre=p_pre, p_post=p_post)
+
+
+def extract_pm_conviction(committee_result: object) -> float | None:
+    """Extract PM's final conviction from CommitteeResult.
+
+    Looks for PM Decision phase in the conviction timeline.
+
+    Args:
+        committee_result: A MAIC CommitteeResult object.
+
+    Returns:
+        PM conviction on 0-1 scale, or None if not available.
+    """
+    timeline = getattr(committee_result, "conviction_timeline", [])
+
+    for snapshot in timeline:
+        phase = getattr(snapshot, "phase", "")
+        agent = getattr(snapshot, "agent", "")
+        score = getattr(snapshot, "score", None)
+
+        if score is not None and ("PM Decision" in phase or "pm" in agent.lower()):
+            return score / 10.0  # Normalize from MAIC 0-10 to 0-1
+
+    return None
+
+
+def extract_analyst_convictions(committee_result: object) -> list[float]:
+    """Extract analyst convictions from CommitteeResult.
+
+    Collects post-debate conviction scores from non-PM agents.
+
+    Args:
+        committee_result: A MAIC CommitteeResult object.
+
+    Returns:
+        List of analyst convictions on 0-1 scale.
+    """
+    timeline = getattr(committee_result, "conviction_timeline", [])
+    convictions = []
+
+    for snapshot in timeline:
+        phase = getattr(snapshot, "phase", "")
+        agent = getattr(snapshot, "agent", "")
+        score = getattr(snapshot, "score", None)
+
+        if score is None:
+            continue
+
+        # Post-debate scores from non-PM agents
+        is_post = "Post-Debate" in phase
+        is_pm = "pm" in agent.lower() or "PM Decision" in phase
+
+        if is_post and not is_pm:
+            convictions.append(score / 10.0)
+
+    return convictions
+
+
+def extract_position_type(committee_result: object) -> str | None:
+    """Extract position type from CommitteeResult.
+
+    Maps MAIC's recommendation/direction to CGF position types:
+    alpha_long, core_long, alpha_short, hedge_short.
+
+    Args:
+        committee_result: A MAIC CommitteeResult object.
+
+    Returns:
+        Position type string or None.
+    """
+    recommendation = getattr(committee_result, "recommendation", None)
+    if recommendation is None:
+        return None
+
+    rec_lower = str(recommendation).lower()
+
+    if "short" in rec_lower:
+        # Distinguish alpha vs hedge short
+        rationale = getattr(committee_result, "rationale", "")
+        if "hedge" in str(rationale).lower() or "risk" in rec_lower:
+            return "hedge_short"
+        return "alpha_short"
+
+    if "long" in rec_lower or "buy" in rec_lower:
+        conviction_score = getattr(committee_result, "conviction_score", None)
+        if conviction_score is not None and conviction_score >= 7:
+            return "alpha_long"
+        return "core_long"
+
+    return None
 
 
 def extract_conviction_snapshots(committee_result: object) -> list[dict]:
@@ -154,3 +258,7 @@ def extract_fvs_events_from_bear_case(committee_result: object) -> list[dict]:
         })
 
     return events
+
+
+# Backward compatibility alias
+extract_ads = extract_its

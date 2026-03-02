@@ -52,9 +52,9 @@ class ProcessPolicy(BaseModel):
         default=5, ge=1,
         description="Days to detect conviction oscillation",
     )
-    min_participants_for_ads: int = Field(
+    min_participants_for_its: int = Field(
         default=2, ge=1,
-        description="Minimum IC participants for ADS computation",
+        description="Minimum IC participants for ITS computation",
     )
     require_pre_post_probabilities: bool = Field(
         default=True,
@@ -99,7 +99,7 @@ def enforce_policy(
             policy_name="mandatory_adversarial",
             instrument_id=instrument_id,
             severity="block",
-            message="Adversarial debate required but not conducted",
+            message="Independent thesis testing required but not conducted",
         ))
 
     if fvs >= policy.fvs_reset_threshold:
@@ -128,7 +128,7 @@ def enforce_policy(
 
     if (
         policy.require_pre_post_probabilities
-        and participant_count < policy.min_participants_for_ads
+        and participant_count < policy.min_participants_for_its
     ):
         violations.append(PolicyViolation(
             policy_name="insufficient_participants",
@@ -136,7 +136,7 @@ def enforce_policy(
             severity="warning",
             message=(
                 f"Only {participant_count} participants "
-                f"(minimum {policy.min_participants_for_ads})"
+                f"(minimum {policy.min_participants_for_its})"
             ),
         ))
 

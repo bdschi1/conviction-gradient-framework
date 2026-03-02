@@ -176,7 +176,7 @@ class TestValidation:
         assert "fe" in result.ablation
         assert "fvs" in result.ablation
         assert "rrs" in result.ablation
-        assert "ads" in result.ablation
+        assert "its" in result.ablation
 
     def test_ablation_values_finite(self):
         assets, market = generate_universe(n_days=100, seed=42)

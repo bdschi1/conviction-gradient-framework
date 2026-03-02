@@ -2,7 +2,7 @@
 
 
 from bridges.data_bridge import compute_historical_vol, compute_idiosyncratic_vol
-from bridges.maic_bridge import extract_ads, extract_conviction_snapshots
+from bridges.maic_bridge import extract_conviction_snapshots, extract_its
 
 # --- Data Bridge (math functions, no external deps) ---
 
@@ -54,7 +54,7 @@ class MockCommitteeResult:
 
 
 class TestMAICBridge:
-    def test_extract_ads(self):
+    def test_extract_its(self):
         timeline = [
             MockConvictionSnapshot("Initial Analysis", "Long Analyst", 7.5),
             MockConvictionSnapshot("Initial Analysis", "Short Analyst", 5.0),
@@ -62,22 +62,19 @@ class TestMAICBridge:
             MockConvictionSnapshot("PM Decision", "Portfolio Manager", 6.5),
         ]
         result = MockCommitteeResult(timeline)
-        ads = extract_ads(result)
+        its = extract_its(result)
+        assert isinstance(its, float)
 
-        # pre_mean = (7.5 + 5.0) / 2 / 10 = 0.625
-        # post_mean = (6.0 + 6.5) / 2 / 10 = 0.625
-        assert isinstance(ads, float)
-
-    def test_extract_ads_empty(self):
+    def test_extract_its_empty(self):
         result = MockCommitteeResult([])
-        assert extract_ads(result) == 0.0
+        assert extract_its(result) == 0.0
 
-    def test_extract_ads_no_post_debate(self):
+    def test_extract_its_no_post_debate(self):
         timeline = [
             MockConvictionSnapshot("Initial Analysis", "Long Analyst", 7.0),
         ]
         result = MockCommitteeResult(timeline)
-        assert extract_ads(result) == 0.0
+        assert extract_its(result) == 0.0
 
     def test_extract_snapshots(self):
         timeline = [

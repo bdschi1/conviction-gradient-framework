@@ -19,8 +19,8 @@ from __future__ import annotations
 from collections import defaultdict
 from dataclasses import dataclass, field
 
-COMPONENT_KEYS = ("fe", "fvs", "rrs", "ads")
-WEIGHT_MAP = {"fe": "w1", "fvs": "w2", "rrs": "w3", "ads": "w4"}
+COMPONENT_KEYS = ("fe", "fvs", "rrs", "its")
+WEIGHT_MAP = {"fe": "w1", "fvs": "w2", "rrs": "w3", "its": "w4"}
 
 
 def compute_component_usefulness(
@@ -31,10 +31,10 @@ def compute_component_usefulness(
 
     A component is "useful" if its sign/magnitude predicted the direction
     of subsequent returns. FE and RRS are directional (positive = trouble);
-    FVS is severity (higher = more damaging); ADS is shift direction.
+    FVS is severity (higher = more damaging); ITS is thesis shift direction.
 
     Args:
-        component_history: List of dicts with keys fe/fvs/rrs/ads.
+        component_history: List of dicts with keys fe/fvs/rrs/its.
         subsequent_returns: List of realized returns following each observation.
 
     Returns:
@@ -56,9 +56,9 @@ def compute_component_usefulness(
             total += 1
             # For FE/RRS: positive component → expect negative return
             # For FVS: higher severity → expect negative return
-            # For ADS: positive shift → expect positive return (conviction confirmed)
-            if key == "ads":
-                if (comp_val > 0 and ret > 0) or (comp_val < 0 and ret < 0):
+            # For ITS: positive (thesis challenged) → expect negative return
+            if key == "its":
+                if (comp_val > 0 and ret < 0) or (comp_val < 0 and ret > 0):
                     correct += 1
             else:
                 if (comp_val > 0 and ret < 0) or (comp_val < 0 and ret > 0):
@@ -136,7 +136,7 @@ class AdaptiveWeightTracker:
 
         Args:
             instrument_id: Instrument identifier.
-            components: Dict with keys fe/fvs/rrs/ads.
+            components: Dict with keys fe/fvs/rrs/its.
             realized_return: Realized return for this period.
         """
         self._history[instrument_id].append(components)

@@ -1,6 +1,7 @@
 """Validation report formatting.
 
 Formats comparison tables and ablation summaries for console output.
+Supports synthetic, signal-embedded, and real data validation results.
 """
 
 from __future__ import annotations
@@ -222,5 +223,97 @@ def format_signal_summary(results: list[ValidationResult]) -> str:
             f"{comp:<10} {mean_val:>16.4f} {std_val:>8.4f} "
             f"{win_rate:>9.0%} {assessment:>12}"
         )
+
+    return "\n".join(lines)
+
+
+def format_real_data_summary(
+    result: ValidationResult,
+    tickers: list[str] | None = None,
+) -> str:
+    """Format summary for real data validation.
+
+    Shows universe info, CGF vs baselines, ablation, and per-asset
+    conviction statistics.
+
+    Args:
+        result: ValidationResult from real data run.
+        tickers: Ticker list for display.
+
+    Returns:
+        Formatted real data validation summary.
+    """
+    lines = []
+    lines.append("Real Data Validation")
+    lines.append("=" * 65)
+
+    if tickers:
+        lines.append(f"Universe: {', '.join(tickers)}")
+        lines.append("")
+
+    # CGF vs baselines
+    full_sharpe = None
+    full_ret = None
+    full_vol = None
+    full_dd = None
+    for v in result.variants:
+        if v.name == "full_model":
+            full_sharpe = v.metrics.sharpe_ratio
+            full_ret = v.metrics.annualized_return
+            full_vol = v.metrics.annualized_vol
+            full_dd = v.metrics.max_drawdown
+
+    ew_sharpe = None
+    for b in result.baselines:
+        if b.name == "equal_weight":
+            ew_sharpe = b.metrics.sharpe_ratio
+
+    if full_sharpe is not None:
+        lines.append(
+            f"CGF full model:  Sharpe={full_sharpe:.4f}, "
+            f"Return={full_ret:.3f}, Vol={full_vol:.3f}, MaxDD={full_dd:.3f}"
+        )
+    if ew_sharpe is not None:
+        lines.append(f"Equal-weight:    Sharpe={ew_sharpe:.4f}")
+    if full_sharpe is not None and ew_sharpe is not None:
+        diff = full_sharpe - ew_sharpe
+        lines.append(f"CGF - EW diff:   {diff:+.4f}")
+
+    # Ablation
+    if result.ablation:
+        lines.append("")
+        lines.append(f"{'Component':<10} {'Marginal Sharpe':>16} {'Assessment':>12}")
+        lines.append("-" * 40)
+        for comp in sorted(result.ablation):
+            marginal = result.ablation[comp]
+            if marginal > 0.05:
+                assessment = "helpful"
+            elif marginal < -0.05:
+                assessment = "may hurt"
+            else:
+                assessment = "neutral"
+            lines.append(f"{comp:<10} {marginal:>16.4f} {assessment:>12}")
+
+    # Per-asset conviction stats
+    full_convictions = None
+    for v in result.variants:
+        if v.name == "full_model" and v.convictions:
+            full_convictions = v.convictions
+            break
+
+    if full_convictions:
+        lines.append("")
+        lines.append("Per-asset conviction stats (full model):")
+        lines.append(
+            f"{'Asset':<10} {'Mean C':>8} {'Std C':>8} {'Min C':>8} {'Max C':>8}"
+        )
+        lines.append("-" * 44)
+        for asset_name in sorted(full_convictions):
+            c = full_convictions[asset_name]
+            if len(c) > 0:
+                lines.append(
+                    f"{asset_name:<10} {np.mean(c):>8.3f} {np.std(c):>8.3f} "
+                    f"{np.min(c):>8.3f} {np.max(c):>8.3f}"
+                )
 
     return "\n".join(lines)

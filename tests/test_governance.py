@@ -4,7 +4,7 @@ from datetime import date
 
 import pytest
 
-from governance.debate import DebateRecord, extract_ads_from_debate_records
+from governance.debate import DebateRecord, extract_its_from_debate_records
 from governance.policies import ProcessPolicy, enforce_policy
 from governance.session import SessionManager, SessionStatus
 
@@ -48,10 +48,10 @@ class TestSessionManager:
         mgr.submit_post_probability(sid, "a1", 0.5)
         mgr.submit_post_probability(sid, "a2", 0.55)
 
-        # Finalize and compute ADS
-        ads = mgr.finalize(sid)
+        # Finalize and compute ITS
+        its = mgr.finalize(sid)
         # mean_post - mean_pre = 0.525 - 0.65 = -0.125
-        assert ads == pytest.approx(-0.125)
+        assert its == pytest.approx(-0.125)
         assert mgr.get_session(sid).status == SessionStatus.FINALIZED
 
     def test_invalid_state_transition(self):
@@ -84,21 +84,21 @@ class TestSessionManager:
 
 
 class TestDebateRecords:
-    def test_extract_ads(self):
+    def test_extract_its(self):
         records = [
             DebateRecord(session_id="s1", pre_conviction=7.0, post_conviction=5.0),
             DebateRecord(session_id="s1", pre_conviction=6.0, post_conviction=4.0),
         ]
-        ads = extract_ads_from_debate_records(records)
+        its = extract_its_from_debate_records(records)
         # mean_post - mean_pre = 4.5 - 6.5 = -2.0
-        assert ads == pytest.approx(-2.0)
+        assert its == pytest.approx(-2.0)
 
     def test_empty_records(self):
-        assert extract_ads_from_debate_records([]) == 0.0
+        assert extract_its_from_debate_records([]) == 0.0
 
     def test_missing_scores(self):
         records = [DebateRecord(session_id="s1")]
-        assert extract_ads_from_debate_records(records) == 0.0
+        assert extract_its_from_debate_records(records) == 0.0
 
 
 # --- Policies ---
@@ -148,7 +148,7 @@ class TestPolicies:
         assert any(v.policy_name == "fe_review" for v in violations)
 
     def test_insufficient_participants(self):
-        policy = ProcessPolicy(min_participants_for_ads=3)
+        policy = ProcessPolicy(min_participants_for_its=3)
         violations = enforce_policy(
             policy, "AAPL",
             has_adversarial_debate=True, participant_count=1,

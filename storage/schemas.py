@@ -13,7 +13,7 @@ CREATE TABLE IF NOT EXISTS conviction_states (
     fe REAL,
     fvs REAL,
     rrs REAL,
-    ads REAL,
+    its REAL,
     total_loss REAL,
     gradient_value REAL,
     learning_rate REAL,
@@ -42,7 +42,7 @@ CREATE TABLE IF NOT EXISTS ic_sessions (
     status TEXT NOT NULL,
     red_team_analyst TEXT,
     notes TEXT DEFAULT '',
-    ads_value REAL,
+    its_value REAL,
     created_at TEXT NOT NULL DEFAULT (datetime('now'))
 )
 """

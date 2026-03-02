@@ -1,4 +1,4 @@
-"""Adversarial debate workflow and ADS computation.
+"""Independent thesis testing workflow and ITS computation.
 
 Structures IC debate into quantitative signals. Can consume MAIC
 CommitteeResult outputs or standalone debate records.
@@ -15,28 +15,29 @@ logger = logging.getLogger(__name__)
 
 
 class DebateRecord(BaseModel):
-    """Record of an adversarial debate round."""
+    """Record of an IC thesis testing round."""
 
     session_id: str
     round_number: int = 1
-    red_team_analyst: str = ""
+    lead_analyst: str = ""
     counter_thesis: str = ""
     rebuttal_summary: str = ""
     pre_conviction: float | None = None
     post_conviction: float | None = None
+    position_type: str | None = None
     timestamp: datetime = Field(default_factory=datetime.now)
 
 
-def extract_ads_from_debate_records(records: list[DebateRecord]) -> float:
-    """Compute ADS from debate records.
+def extract_its_from_debate_records(records: list[DebateRecord]) -> float:
+    """Compute ITS from debate records.
 
-    Uses the conviction shift across debate rounds.
+    Uses the conviction shift across thesis testing rounds.
 
     Args:
         records: Debate records with pre/post conviction scores.
 
     Returns:
-        ADS value (positive = conviction increased, negative = decreased).
+        ITS value (positive = thesis challenged, negative = thesis confirmed).
     """
     if not records:
         return 0.0
@@ -52,17 +53,17 @@ def extract_ads_from_debate_records(records: list[DebateRecord]) -> float:
     return post_mean - pre_mean
 
 
-def extract_ads_from_committee_result(committee_result: object) -> float:
-    """Extract ADS from a MAIC CommitteeResult.
+def extract_its_from_committee_result(committee_result: object) -> float:
+    """Extract ITS from a MAIC CommitteeResult.
 
-    Parses the conviction_timeline to find pre-debate and post-debate
+    Parses the conviction_timeline to find pre- and post-debate
     conviction scores across all agents.
 
     Args:
         committee_result: A MAIC CommitteeResult object (duck-typed).
 
     Returns:
-        ADS value.
+        ITS value.
     """
     timeline = getattr(committee_result, "conviction_timeline", [])
     if not timeline:
@@ -89,3 +90,8 @@ def extract_ads_from_committee_result(committee_result: object) -> float:
     pre_mean = sum(pre_scores) / len(pre_scores) / 10.0
     post_mean = sum(post_scores) / len(post_scores) / 10.0
     return post_mean - pre_mean
+
+
+# Backward compatibility aliases
+extract_ads_from_debate_records = extract_its_from_debate_records
+extract_ads_from_committee_result = extract_its_from_committee_result

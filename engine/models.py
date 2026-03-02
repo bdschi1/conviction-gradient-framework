@@ -13,8 +13,13 @@ class LossComponents(BaseModel):
     fe: float = Field(description="Forecast Error (standardized return miss)")
     fvs: float = Field(description="Fundamental Violation Score (0-1)")
     rrs: float = Field(description="Risk Regime Shift")
-    ads: float = Field(description="Adversarial Debate Shift")
+    its: float = Field(description="Independent Thesis Shift")
     total_loss: float = Field(description="Weighted total loss L_t")
+
+    @property
+    def ads(self) -> float:
+        """Backward-compatible alias for ITS."""
+        return self.its
 
 
 class GradientResult(BaseModel):
@@ -61,5 +66,13 @@ class InstrumentData(BaseModel):
     fvs_events: list[dict] = Field(default_factory=list, description="FVS event dicts")
     p_pre: list[float] = Field(default_factory=list, description="Pre-debate probabilities")
     p_post: list[float] = Field(default_factory=list, description="Post-debate probabilities")
+    pm_conviction: float | None = Field(default=None, description="PM conviction level (0-1)")
+    analyst_convictions: list[float] = Field(
+        default_factory=list, description="Analyst conviction levels (0-1 each)"
+    )
+    position_type: str | None = Field(
+        default=None,
+        description="Position type: alpha_long, core_long, alpha_short, hedge_short",
+    )
     info_half_life: float = Field(default=1.0, ge=0, description="Information decay parameter")
     track_record_score: float = Field(default=0.0, ge=0, description="Analyst track record")

@@ -116,15 +116,15 @@ class TestSignalGenerators:
 
     def test_debate_shifts_before_drawdowns(self):
         asset = generate_signal_asset(
-            n_days=504, seed=42, channels=["ads"],
-            n_drawdowns=5, ads_lead=2,
+            n_days=504, seed=42, channels=["its"],
+            n_drawdowns=5, its_lead=2,
         )
         signal_debates = [
             d for d in asset.debate_schedule
             if any(abs(d["day"] - (dd - 2)) <= 0 for dd in asset.drawdown_days)
         ]
         assert len(signal_debates) > 0
-        # Signal debates should have positive ADS (p_post > p_pre)
+        # Signal debates should have positive ITS (p_post > p_pre)
         for d in signal_debates:
             assert np.mean(d["p_post"]) > np.mean(d["p_pre"])
 
@@ -133,7 +133,7 @@ class TestSignalGenerators:
         assert len(assets) == 5
         assert len(market) == 200
         names = {a.name for a in assets}
-        assert names == {"FE_SIGNAL", "FVS_SIGNAL", "RRS_SIGNAL", "ADS_SIGNAL", "ALL_SIGNAL"}
+        assert names == {"FE_SIGNAL", "FVS_SIGNAL", "RRS_SIGNAL", "ITS_SIGNAL", "ALL_SIGNAL"}
 
     def test_no_channels_produces_no_signal(self):
         """Asset with no signal channels should have empty schedules."""
@@ -201,7 +201,7 @@ class TestSignalValidation:
         assert "fe" in result.ablation
         assert "fvs" in result.ablation
         assert "rrs" in result.ablation
-        assert "ads" in result.ablation
+        assert "its" in result.ablation
 
     def test_signal_ablation_finite(self):
         assets, market = generate_signal_universe(n_days=150, seed=42)

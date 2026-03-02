@@ -4,7 +4,6 @@ from datetime import date
 
 import pytest
 
-from components.debate_shift import compute_ads
 from components.forecast_error import compute_fe
 from components.fundamental_violation import (
     FVSEvent,
@@ -12,6 +11,7 @@ from components.fundamental_violation import (
     compute_fvs,
 )
 from components.risk_regime import compute_rrs
+from components.thesis_shift import compute_its
 
 # --- Forecast Error ---
 
@@ -151,33 +151,82 @@ class TestRRS:
         assert rrs == pytest.approx(0.25)
 
 
-# --- Adversarial Debate Shift ---
+# --- Independent Thesis Shift ---
 
 
-class TestADS:
-    def test_no_change(self):
-        ads = compute_ads([0.7, 0.7], [0.7, 0.7])
-        assert ads == pytest.approx(0.0)
+class TestITS:
+    def test_fallback_no_change(self):
+        its = compute_its(p_pre=[0.7, 0.7], p_post=[0.7, 0.7])
+        assert its == pytest.approx(0.0)
 
-    def test_positive_shift(self):
-        ads = compute_ads([0.5, 0.6], [0.7, 0.8])
-        assert ads == pytest.approx(0.2)
+    def test_fallback_positive_shift(self):
+        its = compute_its(p_pre=[0.5, 0.6], p_post=[0.7, 0.8])
+        assert its == pytest.approx(0.2)
 
-    def test_negative_shift(self):
-        ads = compute_ads([0.8, 0.9], [0.6, 0.7])
-        assert ads == pytest.approx(-0.2)
+    def test_fallback_negative_shift(self):
+        its = compute_its(p_pre=[0.8, 0.9], p_post=[0.6, 0.7])
+        assert its == pytest.approx(-0.2)
 
     def test_empty_lists(self):
-        assert compute_ads([], []) == 0.0
+        assert compute_its(p_pre=[], p_post=[]) == 0.0
 
     def test_empty_pre(self):
-        assert compute_ads([], [0.5]) == 0.0
+        assert compute_its(p_pre=[], p_post=[0.5]) == 0.0
 
-    def test_different_lengths(self):
-        ads = compute_ads([0.5], [0.7, 0.8])
+    def test_fallback_different_lengths(self):
+        its = compute_its(p_pre=[0.5], p_post=[0.7, 0.8])
         # mean([0.7, 0.8]) - mean([0.5]) = 0.75 - 0.5 = 0.25
-        assert ads == pytest.approx(0.25)
+        assert its == pytest.approx(0.25)
 
-    def test_unanimous_shift(self):
-        ads = compute_ads([0.5, 0.5, 0.5], [0.9, 0.9, 0.9])
-        assert ads == pytest.approx(0.4)
+    def test_fallback_unanimous_shift(self):
+        its = compute_its(p_pre=[0.5, 0.5, 0.5], p_post=[0.9, 0.9, 0.9])
+        assert its == pytest.approx(0.4)
+
+    def test_rich_mode_thesis_challenged(self):
+        """PM more convicted than analysts → positive ITS (thesis challenged)."""
+        its = compute_its(
+            pm_conviction=0.8,
+            analyst_convictions=[0.4, 0.5, 0.6],
+        )
+        assert its > 0
+
+    def test_rich_mode_thesis_confirmed(self):
+        """Analysts more convicted than PM → negative ITS (thesis confirmed)."""
+        its = compute_its(
+            pm_conviction=0.4,
+            analyst_convictions=[0.7, 0.8, 0.9],
+        )
+        assert its < 0
+
+    def test_rich_mode_convergence(self):
+        """PM and analysts agree → ITS near zero."""
+        its = compute_its(
+            pm_conviction=0.6,
+            analyst_convictions=[0.58, 0.60, 0.62],
+        )
+        assert abs(its) < 0.1
+
+    def test_rich_mode_bounded(self):
+        """ITS should be clipped to [-1, 1]."""
+        its = compute_its(
+            pm_conviction=1.0,
+            analyst_convictions=[0.0],
+        )
+        assert -1.0 <= its <= 1.0
+
+    def test_none_inputs_returns_zero(self):
+        assert compute_its() == 0.0
+
+    def test_position_type_passthrough(self):
+        """Position type doesn't affect ITS value (informational only)."""
+        its_alpha = compute_its(
+            pm_conviction=0.8,
+            analyst_convictions=[0.5, 0.6],
+            position_type="alpha_long",
+        )
+        its_hedge = compute_its(
+            pm_conviction=0.8,
+            analyst_convictions=[0.5, 0.6],
+            position_type="hedge_short",
+        )
+        assert its_alpha == pytest.approx(its_hedge)

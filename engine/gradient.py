@@ -1,6 +1,6 @@
 """Gradient computation and adaptive learning rate.
 
-Gradient: nabla L_t = lambda1 * FE + lambda2 * FVS + lambda3 * RRS + lambda4 * ADS
+Gradient: nabla L_t = lambda1 * FE + lambda2 * FVS + lambda3 * RRS + lambda4 * ITS
 
 Learning rate: alpha_t = (kappa / (1 + InfoHalfLife))
                          * (sigma_idio / sigma_expected)
@@ -21,7 +21,7 @@ def compute_gradient(
     fe: float,
     fvs: float,
     rrs: float,
-    ads: float,
+    its: float,
     params: ConvictionParams | None = None,
 ) -> float:
     """Compute the loss gradient for conviction update.
@@ -30,14 +30,14 @@ def compute_gradient(
         fe: Forecast Error.
         fvs: Fundamental Violation Score.
         rrs: Risk Regime Shift.
-        ads: Adversarial Debate Shift.
+        its: Independent Thesis Shift.
         params: Hyperparameters with lambda1-4.
 
     Returns:
         Scalar gradient value.
     """
     p = params or ConvictionParams()
-    return p.lambda1 * fe + p.lambda2 * fvs + p.lambda3 * rrs + p.lambda4 * ads
+    return p.lambda1 * fe + p.lambda2 * fvs + p.lambda3 * rrs + p.lambda4 * its
 
 
 def compute_learning_rate(
@@ -51,9 +51,9 @@ def compute_learning_rate(
 ) -> float:
     """Compute adaptive learning rate.
 
-    Higher idiosyncratic vol → more responsive.
-    Higher track record → less responsive (trusted analyst, lower learning rate).
-    Higher info half-life → less responsive (slower information decay).
+    Higher idiosyncratic vol -> more responsive.
+    Higher track record -> less responsive (trusted analyst, lower learning rate).
+    Higher info half-life -> less responsive (slower information decay).
 
     Args:
         kappa: Base scaling constant.
@@ -83,14 +83,14 @@ def compute_gradient_result(
     fe: float,
     fvs: float,
     rrs: float,
-    ads: float,
+    its: float,
     alpha_t: float,
     params: ConvictionParams | None = None,
 ) -> GradientResult:
     """Compute full gradient result with component breakdown.
 
     Args:
-        fe, fvs, rrs, ads: Loss component values.
+        fe, fvs, rrs, its: Loss component values.
         alpha_t: Pre-computed learning rate.
         params: Hyperparameters.
 
@@ -103,7 +103,7 @@ def compute_gradient_result(
         "fe": p.lambda1 * fe,
         "fvs": p.lambda2 * fvs,
         "rrs": p.lambda3 * rrs,
-        "ads": p.lambda4 * ads,
+        "its": p.lambda4 * its,
     }
 
     gradient_value = sum(contributions.values())

@@ -21,21 +21,21 @@ class TestLoss:
 
     def test_fe_squared(self):
         params = ConvictionParams(w1=1.0, w2=0.0, w3=0.0, w4=0.0)
-        result = compute_loss(fe=2.0, fvs=0, rrs=0, ads=0, params=params)
+        result = compute_loss(fe=2.0, fvs=0, rrs=0, its=0, params=params)
         assert result.total_loss == pytest.approx(4.0)
 
     def test_weighted_sum(self):
         params = ConvictionParams(w1=0.25, w2=0.25, w3=0.25, w4=0.25)
-        result = compute_loss(fe=1.0, fvs=0.5, rrs=0.3, ads=-0.1, params=params)
+        result = compute_loss(fe=1.0, fvs=0.5, rrs=0.3, its=-0.1, params=params)
         expected = 0.25 * 1.0 + 0.25 * 0.5 + 0.25 * 0.3 + 0.25 * (-0.1)
         assert result.total_loss == pytest.approx(expected)
 
     def test_components_stored(self):
-        result = compute_loss(fe=1.5, fvs=0.6, rrs=0.2, ads=-0.3)
+        result = compute_loss(fe=1.5, fvs=0.6, rrs=0.2, its=-0.3)
         assert result.fe == pytest.approx(1.5)
         assert result.fvs == pytest.approx(0.6)
         assert result.rrs == pytest.approx(0.2)
-        assert result.ads == pytest.approx(-0.3)
+        assert result.its == pytest.approx(-0.3)
 
 
 # --- Gradient ---
@@ -48,13 +48,13 @@ class TestGradient:
 
     def test_linear_combination(self):
         params = ConvictionParams(lambda1=2.0, lambda2=1.0, lambda3=1.0, lambda4=1.0)
-        g = compute_gradient(fe=1.0, fvs=0.5, rrs=0.3, ads=0.1, params=params)
+        g = compute_gradient(fe=1.0, fvs=0.5, rrs=0.3, its=0.1, params=params)
         expected = 2.0 * 1.0 + 1.0 * 0.5 + 1.0 * 0.3 + 1.0 * 0.1
         assert g == pytest.approx(expected)
 
     def test_gradient_result_breakdown(self):
         result = compute_gradient_result(
-            fe=1.0, fvs=0.5, rrs=0.3, ads=0.1, alpha_t=0.05
+            fe=1.0, fvs=0.5, rrs=0.3, its=0.1, alpha_t=0.05
         )
         assert result.learning_rate == pytest.approx(0.05)
         assert "fe" in result.component_contributions

@@ -13,7 +13,7 @@ from enum import Enum
 
 from pydantic import BaseModel, Field
 
-from components.debate_shift import compute_ads
+from components.thesis_shift import compute_its
 
 logger = logging.getLogger(__name__)
 
@@ -143,10 +143,10 @@ class SessionManager:
             ))
 
     def finalize(self, session_id: str) -> float:
-        """Finalize session and compute ADS.
+        """Finalize session and compute ITS.
 
         Returns:
-            Adversarial Debate Shift value.
+            Independent Thesis Shift value.
         """
         session = self._get_session(session_id)
         if session.status != SessionStatus.POST_DEBATE:
@@ -156,17 +156,17 @@ class SessionManager:
         p_post = [s.p_post for s in session.submissions if s.p_post is not None]
 
         if not p_pre or not p_post:
-            raise ValueError("Insufficient probability submissions to compute ADS")
+            raise ValueError("Insufficient probability submissions to compute ITS")
 
-        ads = compute_ads(p_pre, p_post)
+        its = compute_its(p_pre=p_pre, p_post=p_post)
         session.status = SessionStatus.FINALIZED
         logger.info(
-            "Session %s finalized. ADS = %.4f (pre_mean=%.3f, post_mean=%.3f)",
-            session_id, ads,
+            "Session %s finalized. ITS = %.4f (pre_mean=%.3f, post_mean=%.3f)",
+            session_id, its,
             sum(p_pre) / len(p_pre),
             sum(p_post) / len(p_post),
         )
-        return ads
+        return its
 
     def get_session(self, session_id: str) -> ICSession:
         """Get a session by ID."""

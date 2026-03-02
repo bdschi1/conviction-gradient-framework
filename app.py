@@ -243,7 +243,7 @@ def _show_glossary():
     )
     st.latex(
         r"L_t = w_1 \cdot FE^2 + w_2 \cdot FVS "
-        r"+ w_3 \cdot |RRS| + w_4 \cdot |ADS|"
+        r"+ w_3 \cdot |RRS| + w_4 \cdot |ITS|"
     )
 
     cols = st.columns(2)
@@ -279,13 +279,13 @@ def _show_glossary():
             r" + \lambda_{iv}\left(\sigma_{IV} - \sigma_{HV}\right)"
         )
         st.markdown(
-            "**ADS — Adversarial Debate Shift**\n\n"
-            "Captures how an IC debate moved probability "
-            "estimates. A large shift means the debate "
-            "changed minds."
+            "**ITS — Independent Thesis Shift**\n\n"
+            "Captures how independent thesis testing moved "
+            "conviction. Measures the PM–analyst conviction "
+            "delta, or debate probability shift as fallback."
         )
         st.latex(
-            r"ADS = \overline{p}_{post} - \overline{p}_{pre}"
+            r"ITS = \frac{C_{PM} - \overline{C}_{analysts}}{scale}"
         )
 
     st.divider()
@@ -456,7 +456,7 @@ def _sidebar():
             "Higher = more responsive to changing risk profile.",
         )
         w4 = st.slider(
-            "w4 (ADS weight)", 0.0, 1.0, 0.20, 0.05,
+            "w4 (ITS weight)", 0.0, 1.0, 0.20, 0.05,
             help="How much IC debate outcomes drive conviction updates. "
             "Higher = debates have more impact on positioning.",
         )
@@ -665,14 +665,14 @@ def generate_instrument_narrative(
                 f"Vol regime: idio vol {direction} "
                 f"(RRS={lc.rrs:+.2f})"
             )
-        if abs(lc.ads) > 0.03:
+        if abs(lc.its) > 0.03:
             drivers.append(
                 f"IC debate shifted estimates "
-                f"(ADS={lc.ads:+.2f})"
+                f"(ITS={lc.its:+.2f})"
             )
 
     if not drivers and lc:
-        components = {"FE": lc.fe, "FVS": lc.fvs, "RRS": lc.rrs, "ADS": lc.ads}
+        components = {"FE": lc.fe, "FVS": lc.fvs, "RRS": lc.rrs, "ITS": lc.its}
         dominant = max(components, key=lambda k: abs(components[k]))
         drivers.append(
             f"Primary driver: {dominant} ({components[dominant]:+.2f})"
@@ -821,7 +821,7 @@ def _build_print_report(
             <td>{f"{lc.fe:+.3f}" if lc else "—"}</td>
             <td>{f"{lc.fvs:.3f}" if lc else "—"}</td>
             <td>{f"{lc.rrs:+.3f}" if lc else "—"}</td>
-            <td>{f"{lc.ads:+.3f}" if lc else "—"}</td>
+            <td>{f"{lc.its:+.3f}" if lc else "—"}</td>
             <td>{f"{lc.total_loss:.3f}" if lc else "—"}</td>
         </tr>"""
 
@@ -956,7 +956,7 @@ p {{{{ line-height: 1.6; }}}}
   <th>Raw Wt</th><th>Constrained Wt</th>
   <th>Side</th>
   <th>FE</th><th>FVS</th><th>RRS</th>
-  <th>ADS</th><th>Total Loss</th>
+  <th>ITS</th><th>Total Loss</th>
 </tr>
 {rows}
 </table>
@@ -1750,8 +1750,8 @@ def main():  # noqa: C901
                     "RRS": (
                         f"{lc.rrs:+.3f}" if lc else "—"
                     ),
-                    "ADS": (
-                        f"{lc.ads:+.3f}" if lc else "—"
+                    "ITS": (
+                        f"{lc.its:+.3f}" if lc else "—"
                     ),
                     "Total Loss": (
                         f"{lc.total_loss:.3f}" if lc else "—"
@@ -1843,20 +1843,20 @@ def main():  # noqa: C901
             st.plotly_chart(fig_c, use_container_width=True)
 
             fe_vals, fvs_vals = [], []
-            rrs_vals, ads_vals = [], []
+            rrs_vals, its_vals = [], []
             for t in tickers_sorted:
                 lc = states[t].loss_components
                 fe_vals.append(abs(lc.fe) if lc else 0)
                 fvs_vals.append(lc.fvs if lc else 0)
                 rrs_vals.append(abs(lc.rrs) if lc else 0)
-                ads_vals.append(abs(lc.ads) if lc else 0)
+                its_vals.append(abs(lc.its) if lc else 0)
 
             fig_loss = go.Figure()
             for name, vals, color in [
                 ("FE", fe_vals, "#3498db"),
                 ("FVS", fvs_vals, "#e67e22"),
                 ("RRS", rrs_vals, "#9b59b6"),
-                ("ADS", ads_vals, "#1abc9c"),
+                ("ITS", its_vals, "#1abc9c"),
             ]:
                 fig_loss.add_trace(go.Bar(
                     name=name, x=tickers_sorted,

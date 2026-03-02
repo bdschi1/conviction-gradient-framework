@@ -1,12 +1,12 @@
 """Validation runner — drives CGF over synthetic series and computes ablation metrics.
 
 Variants:
-- full_model: All 4 components active (FE + FVS + RRS + ADS)
+- full_model: All 4 components active (FE + FVS + RRS + ITS)
 - fe_only: Only forecast error (w2=w3=w4=0)
 - no_fe: Zero forecast error weight
 - no_fvs: Zero fundamental violation weight
 - no_rrs: Zero risk regime shift weight
-- no_ads: Zero adversarial debate shift weight
+- no_its: Zero independent thesis shift weight
 - full_model_adaptive: Full model + adaptive loss weights
 - full_model_continuous_regime: Full model + continuous regime detection
 - full_model_all_features: Full model + all new features
@@ -16,6 +16,11 @@ Signal-embedded mode:
   SignalEmbeddedAsset (forecasts, FVS events, IV, debates, track record).
 - run_signal_validation / run_signal_validation_multi_seed: Drive signal-aware
   validation with ablation.
+
+Real data mode:
+- run_real_data_validation: Fetches real market data via yfinance and runs
+  CGF ablation variants. Uses SignalEmbeddedAsset format with real prices,
+  earnings surprises (FVS), VIX (IV proxy), and trailing forecasts.
 """
 
 from __future__ import annotations
@@ -82,7 +87,7 @@ def _make_params_variant(
         return base.model_copy(update={"w2": 0.0, "lambda2": 0.0})
     if variant == "no_rrs":
         return base.model_copy(update={"w3": 0.0, "lambda3": 0.0})
-    if variant == "no_ads":
+    if variant in ("no_ads", "no_its"):
         return base.model_copy(update={"w4": 0.0, "lambda4": 0.0})
     if variant == "full_model_adaptive":
         return base.model_copy(update={"adaptive_weights": True, "adaptive_lookback": 63})
@@ -103,7 +108,7 @@ _FEATURE_VARIANTS = {
     "full_model_all_features",
 }
 
-ABLATION_VARIANTS = ["full_model", "fe_only", "no_fe", "no_fvs", "no_rrs", "no_ads"]
+ABLATION_VARIANTS = ["full_model", "fe_only", "no_fe", "no_fvs", "no_rrs", "no_its"]
 
 FEATURE_VARIANTS = [
     "full_model_adaptive",
@@ -292,7 +297,7 @@ def run_validation(
     if full_sharpe is not None:
         for vr in variant_results:
             if vr.name.startswith("no_"):
-                component = vr.name[3:]  # e.g. "fe", "fvs", "rrs", "ads"
+                component = vr.name[3:]  # e.g. "fe", "fvs", "rrs", "its"
                 ablation[component] = full_sharpe - vr.metrics.sharpe_ratio
 
     return ValidationResult(
@@ -612,3 +617,113 @@ def run_signal_validation_multi_seed(
         result = run_signal_validation(assets, market)
         results.append(result)
     return results
+
+
+# ---------------------------------------------------------------------------
+# Real data validation
+# ---------------------------------------------------------------------------
+
+
+def run_real_data_validation(
+    config: object | None = None,
+    variants: list[str] | None = None,
+) -> ValidationResult:
+    """Run validation over real market data.
+
+    Fetches real prices, earnings events, and VIX via yfinance, then runs
+    CGF ablation variants using run_cgf_over_signal_series (same pipeline
+    as signal-embedded validation, but with real data).
+
+    Args:
+        config: RealDataConfig (imported from validation.real_data).
+            If None, uses default universe (AAPL, MSFT, JPM, XOM, JNJ).
+        variants: Variant names to run (defaults to SIGNAL_VARIANTS).
+
+    Returns:
+        ValidationResult with all variant and baseline results.
+    """
+    from validation.real_data import RealDataConfig, fetch_real_universe
+
+    cfg = config if config is not None else RealDataConfig()
+    variants = variants or SIGNAL_VARIANTS
+
+    # Fetch real data (cached if available)
+    assets, market_returns = fetch_real_universe(cfg)
+
+    # Base params tuned for daily-frequency real data
+    real_base = ConvictionParams(kappa=0.3)
+
+    # Stack asset returns for baseline strategies
+    n_days = min(len(a.returns) for a in assets)
+    asset_matrix = np.column_stack([a.returns[:n_days] for a in assets])
+
+    # Run baselines
+    baselines = []
+
+    ew_ret, ew_turn = equal_weight_strategy(asset_matrix)
+    baselines.append(VariantResult(
+        name="equal_weight",
+        metrics=compute_metrics(ew_ret, ew_turn),
+    ))
+
+    bh_ret, bh_turn = buy_and_hold_strategy(asset_matrix)
+    baselines.append(VariantResult(
+        name="buy_and_hold",
+        metrics=compute_metrics(bh_ret, bh_turn),
+    ))
+
+    mom_ret, mom_turn = momentum_strategy(asset_matrix)
+    baselines.append(VariantResult(
+        name="momentum",
+        metrics=compute_metrics(mom_ret, mom_turn),
+    ))
+
+    # Run CGF variants over real data
+    variant_results = []
+    for variant_name in variants:
+        params = _make_params_variant(variant_name, base_params=real_base)
+
+        regime_det = None
+        adapt_tracker = None
+        if variant_name in _FEATURE_VARIANTS:
+            if params.continuous_regime:
+                regime_det = RegimeDetector(RegimeDetectorConfig(
+                    vol_threshold=params.regime_vol_threshold,
+                    transition_penalty=params.regime_transition_penalty,
+                ))
+            if params.adaptive_weights:
+                adapt_tracker = AdaptiveWeightTracker(
+                    lookback=params.adaptive_lookback,
+                    decay=params.adaptive_decay,
+                )
+
+        port_ret, convictions = run_cgf_over_signal_series(
+            assets, market_returns, params,
+            regime_detector=regime_det,
+            adaptive_tracker=adapt_tracker,
+        )
+        variant_results.append(VariantResult(
+            name=variant_name,
+            metrics=compute_metrics(port_ret),
+            convictions=convictions,
+        ))
+
+    # Compute ablation
+    ablation = {}
+    full_sharpe = None
+    for vr in variant_results:
+        if vr.name == "full_model":
+            full_sharpe = vr.metrics.sharpe_ratio
+            break
+
+    if full_sharpe is not None:
+        for vr in variant_results:
+            if vr.name.startswith("no_"):
+                component = vr.name[3:]
+                ablation[component] = full_sharpe - vr.metrics.sharpe_ratio
+
+    return ValidationResult(
+        variants=variant_results,
+        baselines=baselines,
+        ablation=ablation,
+    )

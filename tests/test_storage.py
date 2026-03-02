@@ -28,11 +28,11 @@ class TestConvictionDB:
             idiosyncratic_vol=0.18,
             alpha_t=0.05,
             loss_components=LossComponents(
-                fe=1.2, fvs=0.3, rrs=0.1, ads=-0.05, total_loss=0.45,
+                fe=1.2, fvs=0.3, rrs=0.1, its=-0.05, total_loss=0.45,
             ),
             gradient=GradientResult(
                 gradient_value=1.55,
-                component_contributions={"fe": 1.2, "fvs": 0.3, "rrs": 0.1, "ads": -0.05},
+                component_contributions={"fe": 1.2, "fvs": 0.3, "rrs": 0.1, "its": -0.05},
                 learning_rate=0.05,
             ),
         )
@@ -88,7 +88,7 @@ class TestConvictionDB:
             instrument_id="AAPL",
             session_date=date(2024, 6, 1),
             status="finalized",
-            ads_value=-0.125,
+            its_value=-0.125,
         )
         # Verify by querying directly
         conn = db._get_conn()
@@ -96,7 +96,7 @@ class TestConvictionDB:
             "SELECT * FROM ic_sessions WHERE session_id = 's1'"
         ).fetchone()
         assert row is not None
-        assert dict(row)["ads_value"] == pytest.approx(-0.125)
+        assert dict(row)["its_value"] == pytest.approx(-0.125)
 
     def test_track_record(self, db):
         db.save_track_record(

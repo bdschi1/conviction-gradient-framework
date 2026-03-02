@@ -3,7 +3,7 @@
 This file provides guidance to Claude Code when working with this repository.
 
 ## What This Is
-Gradient-descent conviction engine that updates per-position conviction scores using four loss components (forecast error, fundamental violations, vol regime shifts, IC debate shifts), maps conviction into constrained portfolio weights, and scores analyst/AI calibration and update behavior.
+Gradient-descent conviction engine that updates per-position conviction scores using four loss components (forecast error, fundamental violations, vol regime shifts, independent thesis shift), maps conviction into constrained portfolio weights, and scores analyst/AI calibration and update behavior.
 
 ## Commands
 ```bash
@@ -34,7 +34,7 @@ make ui
 
 ## Architecture
 - `engine/` — Core conviction math: loss computation, gradient, adaptive learning rate, update rule, stability/clipping
-- `components/` — Loss component implementations: FE (forecast error), FVS (fundamental violation, YAML taxonomy), RRS (risk regime shift), ADS (adversarial debate shift)
+- `components/` — Loss component implementations: FE (forecast error), FVS (fundamental violation, YAML taxonomy), RRS (risk regime shift), ITS (independent thesis shift)
 - `sizing/` — Conviction-to-weight mapping (basic, vol-adjusted), portfolio constraints (SLSQP), oscillation guard, structural reset
 - `governance/` — IC session lifecycle, probability collection, debate records, configurable YAML process policies
 - `evaluation/` — Brier score, calibration buckets, update alignment, error attribution decomposition, AI benchmark scoring

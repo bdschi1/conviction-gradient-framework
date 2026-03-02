@@ -22,7 +22,7 @@ class TestComponentUsefulness:
     def test_all_useful(self):
         """Components that always predict direction correctly should score high."""
         # Positive FE → negative return (FE predicted trouble correctly)
-        history = [{"fe": 1.0, "fvs": 0.5, "rrs": 0.3, "ads": -0.2}] * 20
+        history = [{"fe": 1.0, "fvs": 0.5, "rrs": 0.3, "its": -0.2}] * 20
         returns = [-0.05] * 20  # All negative (FE/FVS/RRS positive → trouble)
         scores = compute_component_usefulness(history, returns)
         assert scores["fe"] > 0.8
@@ -32,7 +32,7 @@ class TestComponentUsefulness:
     def test_all_useless(self):
         """Components that never predict correctly should score low."""
         # Positive FE but positive returns (wrong direction)
-        history = [{"fe": 1.0, "fvs": 0.5, "rrs": 0.3, "ads": 0.2}] * 20
+        history = [{"fe": 1.0, "fvs": 0.5, "rrs": 0.3, "its": 0.2}] * 20
         returns = [0.05] * 20
         scores = compute_component_usefulness(history, returns)
         assert scores["fe"] < 0.2
@@ -45,34 +45,34 @@ class TestComponentUsefulness:
         returns = []
         for i in range(20):
             if i % 2 == 0:
-                history.append({"fe": 1.0, "fvs": 0.5, "rrs": 0.3, "ads": 0.0})
+                history.append({"fe": 1.0, "fvs": 0.5, "rrs": 0.3, "its": 0.0})
                 returns.append(-0.05)  # Correct
             else:
-                history.append({"fe": 1.0, "fvs": 0.5, "rrs": 0.3, "ads": 0.0})
+                history.append({"fe": 1.0, "fvs": 0.5, "rrs": 0.3, "its": 0.0})
                 returns.append(0.05)  # Wrong
         scores = compute_component_usefulness(history, returns)
         assert 0.3 < scores["fe"] < 0.7
 
-    def test_ads_directional(self):
-        """ADS should be directionally positive (positive shift → positive return)."""
-        history = [{"fe": 0.0, "fvs": 0.0, "rrs": 0.0, "ads": 0.5}] * 20
-        returns = [0.05] * 20  # Positive returns match positive ADS
+    def test_its_directional(self):
+        """ITS positive (thesis challenged) → expect negative return."""
+        history = [{"fe": 0.0, "fvs": 0.0, "rrs": 0.0, "its": 0.5}] * 20
+        returns = [-0.05] * 20  # Negative returns match positive ITS
         scores = compute_component_usefulness(history, returns)
-        assert scores["ads"] > 0.8
+        assert scores["its"] > 0.8
 
     def test_empty_history(self):
         """Empty history should return neutral scores."""
         scores = compute_component_usefulness([], [])
-        for key in ("fe", "fvs", "rrs", "ads"):
+        for key in ("fe", "fvs", "rrs", "its"):
             assert scores[key] == pytest.approx(0.5)
 
     def test_zero_components_ignored(self):
         """Zero component values should not count toward accuracy."""
-        history = [{"fe": 0.0, "fvs": 0.0, "rrs": 0.0, "ads": 0.0}] * 10
+        history = [{"fe": 0.0, "fvs": 0.0, "rrs": 0.0, "its": 0.0}] * 10
         returns = [0.05] * 10
         scores = compute_component_usefulness(history, returns)
         # All zero → no observations → default 0.5
-        for key in ("fe", "fvs", "rrs", "ads"):
+        for key in ("fe", "fvs", "rrs", "its"):
             assert scores[key] == pytest.approx(0.5)
 
 
@@ -80,14 +80,14 @@ class TestUpdateAdaptiveWeights:
     def test_sum_to_one(self):
         """Updated weights should sum to 1.0."""
         current = {"w1": 0.30, "w2": 0.25, "w3": 0.25, "w4": 0.20}
-        usefulness = {"fe": 0.8, "fvs": 0.6, "rrs": 0.4, "ads": 0.2}
+        usefulness = {"fe": 0.8, "fvs": 0.6, "rrs": 0.4, "its": 0.2}
         updated = update_adaptive_weights(current, usefulness)
         assert sum(updated.values()) == pytest.approx(1.0)
 
     def test_floor_respected(self):
         """No weight should fall below the floor."""
         current = {"w1": 0.30, "w2": 0.25, "w3": 0.25, "w4": 0.20}
-        usefulness = {"fe": 0.0, "fvs": 0.0, "rrs": 0.0, "ads": 1.0}
+        usefulness = {"fe": 0.0, "fvs": 0.0, "rrs": 0.0, "its": 1.0}
         updated = update_adaptive_weights(current, usefulness, floor=0.05)
         for w in updated.values():
             assert w >= 0.05
@@ -95,7 +95,7 @@ class TestUpdateAdaptiveWeights:
     def test_decay_speed(self):
         """Higher decay should produce smaller changes per step."""
         current = {"w1": 0.25, "w2": 0.25, "w3": 0.25, "w4": 0.25}
-        usefulness = {"fe": 1.0, "fvs": 0.0, "rrs": 0.0, "ads": 0.0}
+        usefulness = {"fe": 1.0, "fvs": 0.0, "rrs": 0.0, "its": 0.0}
 
         slow = update_adaptive_weights(current, usefulness, decay=0.99)
         fast = update_adaptive_weights(current, usefulness, decay=0.90)
@@ -106,7 +106,7 @@ class TestUpdateAdaptiveWeights:
     def test_equal_usefulness_stable(self):
         """Equal usefulness should keep weights close to current."""
         current = {"w1": 0.30, "w2": 0.25, "w3": 0.25, "w4": 0.20}
-        usefulness = {"fe": 0.5, "fvs": 0.5, "rrs": 0.5, "ads": 0.5}
+        usefulness = {"fe": 0.5, "fvs": 0.5, "rrs": 0.5, "its": 0.5}
         updated = update_adaptive_weights(current, usefulness, decay=0.97)
         # With equal usefulness, weights should stay close to current (after renorm)
         for key in current:
@@ -118,7 +118,7 @@ class TestAdaptiveWeightTracker:
         """Should return None before accumulating lookback observations."""
         tracker = AdaptiveWeightTracker(lookback=10)
         for _ in range(5):
-            tracker.record("AAPL", {"fe": 0.1, "fvs": 0.0, "rrs": 0.0, "ads": 0.0}, 0.01)
+            tracker.record("AAPL", {"fe": 0.1, "fvs": 0.0, "rrs": 0.0, "its": 0.0}, 0.01)
         assert tracker.get_weights("AAPL") is None
 
     def test_weights_after_lookback(self):
@@ -127,7 +127,7 @@ class TestAdaptiveWeightTracker:
         for _ in range(15):
             tracker.record(
                 "AAPL",
-                {"fe": 0.1, "fvs": 0.0, "rrs": 0.0, "ads": 0.0},
+                {"fe": 0.1, "fvs": 0.0, "rrs": 0.0, "its": 0.0},
                 -0.01,  # FE is useful (positive FE → negative return)
             )
         weights = tracker.get_weights("AAPL")
@@ -139,12 +139,12 @@ class TestAdaptiveWeightTracker:
         tracker = AdaptiveWeightTracker(lookback=10, decay=0.90)
         # Phase 1: FE useful
         for _ in range(12):
-            tracker.record("AAPL", {"fe": 1.0, "fvs": 0.0, "rrs": 0.0, "ads": 0.0}, -0.05)
+            tracker.record("AAPL", {"fe": 1.0, "fvs": 0.0, "rrs": 0.0, "its": 0.0}, -0.05)
         w1 = tracker.get_weights("AAPL")
 
         # Phase 2: RRS useful
         for _ in range(12):
-            tracker.record("AAPL", {"fe": 0.0, "fvs": 0.0, "rrs": 1.0, "ads": 0.0}, -0.05)
+            tracker.record("AAPL", {"fe": 0.0, "fvs": 0.0, "rrs": 1.0, "its": 0.0}, -0.05)
         w2 = tracker.get_weights("AAPL")
 
         # w3 (RRS weight) should have increased
@@ -156,9 +156,9 @@ class TestAdaptiveWeightTracker:
         """Each instrument should have independent weight tracking."""
         tracker = AdaptiveWeightTracker(lookback=10)
         for _ in range(12):
-            tracker.record("AAPL", {"fe": 1.0, "fvs": 0.0, "rrs": 0.0, "ads": 0.0}, -0.05)
+            tracker.record("AAPL", {"fe": 1.0, "fvs": 0.0, "rrs": 0.0, "its": 0.0}, -0.05)
         for _ in range(5):
-            tracker.record("MSFT", {"fe": 0.0, "fvs": 1.0, "rrs": 0.0, "ads": 0.0}, -0.05)
+            tracker.record("MSFT", {"fe": 0.0, "fvs": 1.0, "rrs": 0.0, "its": 0.0}, -0.05)
 
         assert tracker.get_weights("AAPL") is not None
         assert tracker.get_weights("MSFT") is None  # Only 5 obs < lookback=10

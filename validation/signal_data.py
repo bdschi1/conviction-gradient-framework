@@ -12,7 +12,7 @@ Asset universe:
 - FE_SIGNAL:  Forecast accuracy 60%, FE channel only
 - FVS_SIGNAL: FVS events 5 days before drawdowns
 - RRS_SIGNAL: IV leads HV by 3 days around drawdowns
-- ADS_SIGNAL: Debate shifts before drawdowns (contrarian)
+- ITS_SIGNAL: Debate shifts before drawdowns (contrarian)
 - ALL_SIGNAL: All 4 channels active, moderate signal strength
 """
 
@@ -233,7 +233,7 @@ def _generate_debate_signals(
 ) -> list[dict]:
     """Generate IC debate schedules preceding drawdowns.
 
-    Positive ADS (p_post > p_pre) before drawdowns acts as a contrarian
+    Positive ITS (p_post > p_pre) before drawdowns acts as a contrarian
     signal: committee becomes more confident right before trouble.
 
     Also generates some noise debates on random days (no signal).
@@ -250,7 +250,7 @@ def _generate_debate_signals(
     debates = []
 
     # Signal debates: before drawdowns, committee becomes MORE confident
-    # (positive ADS → gradient increases → conviction decreases → protective)
+    # (positive ITS → gradient increases → conviction decreases → protective)
     for dd in drawdown_days:
         debate_day = dd - lead_days
         if 0 <= debate_day < n_days:
@@ -299,7 +299,7 @@ def generate_signal_asset(
     drawdown_duration: int = 5,
     fvs_lead: int = 5,
     rrs_lead: int = 3,
-    ads_lead: int = 2,
+    its_lead: int = 2,
     track_record: float = 0.5,
 ) -> SignalEmbeddedAsset:
     """Generate a single signal-embedded asset.
@@ -307,7 +307,7 @@ def generate_signal_asset(
     Args:
         n_days: Trading days.
         seed: Random seed.
-        channels: Active signal channels (subset of ["fe", "fvs", "rrs", "ads"]).
+        channels: Active signal channels (subset of ["fe", "fvs", "rrs", "its"]).
         name: Asset identifier.
         mu: Annualized drift.
         sigma: Annualized vol.
@@ -317,7 +317,7 @@ def generate_signal_asset(
         drawdown_duration: Days per drawdown event.
         fvs_lead: Days before drawdown for FVS events.
         rrs_lead: Days before drawdown for IV spike.
-        ads_lead: Days before drawdown for debate shift.
+        its_lead: Days before drawdown for debate shift.
         track_record: Analyst track record score.
 
     Returns:
@@ -355,10 +355,10 @@ def generate_signal_asset(
         implied_vols = np.clip(implied_vols, daily_base * 0.5, daily_base * 3.0)
         regimes = np.zeros(n_days, dtype=int)
 
-    # ADS: debate signals (only if channel active)
-    if "ads" in channels:
+    # ITS: debate signals (only if channel active)
+    if "its" in channels:
         debate_schedule = _generate_debate_signals(
-            n_days, drawdown_days, ads_lead, rng
+            n_days, drawdown_days, its_lead, rng
         )
     else:
         debate_schedule = []
@@ -390,7 +390,7 @@ def generate_signal_universe(
     1. FE_SIGNAL:  Forecast accuracy 60%, FE channel only
     2. FVS_SIGNAL: FVS events 5d before drawdowns
     3. RRS_SIGNAL: IV leads HV by 3d, vol regime shifts
-    4. ADS_SIGNAL: Debate shifts 2d before drawdowns
+    4. ITS_SIGNAL: Debate shifts 2d before drawdowns
     5. ALL_SIGNAL: All 4 channels, moderate signal strength
 
     Args:
@@ -425,14 +425,14 @@ def generate_signal_universe(
         generate_signal_asset(
             n_days=n_days,
             seed=seed + 3,
-            channels=["ads"],
-            name="ADS_SIGNAL",
-            ads_lead=2,
+            channels=["its"],
+            name="ITS_SIGNAL",
+            its_lead=2,
         ),
         generate_signal_asset(
             n_days=n_days,
             seed=seed + 4,
-            channels=["fe", "fvs", "rrs", "ads"],
+            channels=["fe", "fvs", "rrs", "its"],
             name="ALL_SIGNAL",
             forecast_accuracy=0.57,
             track_record=0.3,

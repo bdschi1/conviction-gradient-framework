@@ -17,13 +17,13 @@ class ConvictionParams(BaseModel):
     w1: float = Field(default=0.30, ge=0, le=1, description="Forecast error weight")
     w2: float = Field(default=0.25, ge=0, le=1, description="Fundamental violation weight")
     w3: float = Field(default=0.25, ge=0, le=1, description="Risk regime shift weight")
-    w4: float = Field(default=0.20, ge=0, le=1, description="Adversarial debate shift weight")
+    w4: float = Field(default=0.20, ge=0, le=1, description="Independent thesis shift weight")
 
     # Gradient scaling
     lambda1: float = Field(default=1.0, ge=0, description="FE gradient scaling")
     lambda2: float = Field(default=1.0, ge=0, description="FVS gradient scaling")
     lambda3: float = Field(default=1.0, ge=0, description="RRS gradient scaling")
-    lambda4: float = Field(default=1.0, ge=0, description="ADS gradient scaling")
+    lambda4: float = Field(default=1.0, ge=0, description="ITS gradient scaling")
 
     # Learning rate
     kappa: float = Field(default=0.1, gt=0, description="Base learning rate scaling constant")

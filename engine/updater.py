@@ -11,10 +11,10 @@ from __future__ import annotations
 
 import logging
 
-from components.debate_shift import compute_ads
 from components.forecast_error import compute_fe
 from components.fundamental_violation import FVSEvent, FVSTaxonomy, compute_fvs
 from components.risk_regime import compute_rrs
+from components.thesis_shift import compute_its
 from config.defaults import ConvictionParams
 from engine.gradient import compute_gradient_result, compute_learning_rate
 from engine.loss import compute_loss
@@ -95,7 +95,13 @@ def run_single_update(
             data.implied_vol,
             data.historical_vol,
         )
-    ads = compute_ads(data.p_pre, data.p_post)
+    its = compute_its(
+        p_pre=data.p_pre,
+        p_post=data.p_post,
+        pm_conviction=data.pm_conviction,
+        analyst_convictions=data.analyst_convictions,
+        position_type=data.position_type,
+    )
 
     # Get adaptive weight overrides if tracker is active
     weight_overrides = None
@@ -103,7 +109,7 @@ def run_single_update(
         weight_overrides = adaptive_tracker.get_weights(data.instrument_id)
 
     # Compute loss and gradient
-    loss = compute_loss(fe, fvs, rrs, ads, p, weight_overrides=weight_overrides)
+    loss = compute_loss(fe, fvs, rrs, its, p, weight_overrides=weight_overrides)
 
     alpha_t = compute_learning_rate(
         kappa=p.kappa,
@@ -115,7 +121,7 @@ def run_single_update(
         alpha_max=p.alpha_max,
     )
 
-    gradient = compute_gradient_result(fe, fvs, rrs, ads, alpha_t, p)
+    gradient = compute_gradient_result(fe, fvs, rrs, its, alpha_t, p)
 
     # Update conviction
     new_c = update_conviction(current, gradient.gradient_value, alpha_t, p.beta, p.C_max)
@@ -124,7 +130,7 @@ def run_single_update(
     if adaptive_tracker is not None and p.adaptive_weights:
         adaptive_tracker.record(
             data.instrument_id,
-            {"fe": fe, "fvs": fvs, "rrs": rrs, "ads": ads},
+            {"fe": fe, "fvs": fvs, "rrs": rrs, "its": its},
             data.realized_return,
         )
 

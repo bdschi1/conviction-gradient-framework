@@ -74,14 +74,16 @@ def cmd_trajectory(args: argparse.Namespace) -> None:
 
 
 def cmd_validate(args: argparse.Namespace) -> None:
-    """Run validation harness over synthetic data."""
+    """Run validation harness over synthetic or real data."""
     from validation.report import (
         format_ablation_summary,
         format_comparison_table,
         format_multi_seed_summary,
+        format_real_data_summary,
         format_signal_summary,
     )
     from validation.runner import (
+        run_real_data_validation,
         run_signal_validation_multi_seed,
         run_validation_multi_seed,
     )
@@ -89,7 +91,22 @@ def cmd_validate(args: argparse.Namespace) -> None:
     n_seeds = args.seeds
     n_days = args.days
 
-    if args.signal:
+    if args.real:
+        from validation.real_data import RealDataConfig
+
+        tickers = args.tickers.split(",") if args.tickers else None
+        config = RealDataConfig(
+            tickers=tickers or RealDataConfig().tickers,
+            start_date=args.start or RealDataConfig().start_date,
+            end_date=args.end or RealDataConfig().end_date,
+        )
+        print(f"Running real data validation ({', '.join(config.tickers)})...")
+        print(f"Period: {config.start_date} to {config.end_date}\n")
+        result = run_real_data_validation(config)
+        print(format_comparison_table(result))
+        print()
+        print(format_real_data_summary(result, tickers=config.tickers))
+    elif args.signal:
         print(f"Running signal-embedded validation ({n_seeds} seeds, {n_days} days)...\n")
         results = run_signal_validation_multi_seed(
             n_seeds=n_seeds, n_days=n_days,
@@ -164,6 +181,22 @@ def main() -> None:
     p_validate.add_argument(
         "--signal", action="store_true",
         help="Use signal-embedded synthetic data (tests component value)",
+    )
+    p_validate.add_argument(
+        "--real", action="store_true",
+        help="Use real market data via yfinance (requires network)",
+    )
+    p_validate.add_argument(
+        "--tickers", type=str, default=None,
+        help="Comma-separated tickers for --real (default: AAPL,MSFT,JPM,XOM,JNJ)",
+    )
+    p_validate.add_argument(
+        "--start", type=str, default=None,
+        help="Start date for --real (YYYY-MM-DD, default: 2022-01-01)",
+    )
+    p_validate.add_argument(
+        "--end", type=str, default=None,
+        help="End date for --real (YYYY-MM-DD, default: 2023-12-31)",
     )
 
     # health
