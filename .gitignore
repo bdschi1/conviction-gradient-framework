@@ -81,3 +81,6 @@ HOW_IT_WORKS.md
 examples/*
 !examples/configs/
 !examples/TEMPLATE.md
+
+# Claude config (local only)
+CLAUDE.md
