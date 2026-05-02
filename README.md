@@ -4,7 +4,7 @@ A system that turns investment conviction into a quantitative state variable, up
 
 In plain English: instead of treating conviction as a vague label ("high conviction" or "low conviction"), CGF computes a numeric score per position based on how much the thesis is holding up against new data. When the thesis deteriorates — missed forecasts, structural breaks, vol regime shifts — conviction adjusts down. When it holds or improves, conviction adjusts up. That score drives position sizing.
 
-This is a framework, not a trading system. It doesn't claim to generate alpha from public data. It formalizes a process that every PM runs intuitively — adjusting conviction when new information arrives — and makes it testable, auditable, and systematic. The components that matter most (IC debate signals, proprietary event data) require a real analyst team and live capital context to be meaningful.
+This is a framework, not a trading system. It doesn't claim to generate alpha from public data. It has not been backtested in this form. It formalizes a process that every PM runs intuitively — adjusting conviction when new information arrives — and makes it testable, auditable, and systematic. The components that matter most (IC debate signals, proprietary event data) require a real analyst team and live capital context to be meaningful.
 
 **Key questions this project answers:**
 - *How should conviction change when new data arrives?*
