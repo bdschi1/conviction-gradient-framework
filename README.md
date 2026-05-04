@@ -1,5 +1,8 @@
 # Conviction Gradient Framework
 
+![Python](https://img.shields.io/badge/python-3.11+-3776AB?style=flat&logo=python&logoColor=white)
+![tests](https://img.shields.io/badge/tests-293%20passing-brightgreen?style=flat)
+
 A system that turns investment conviction into a quantitative state variable, updated over time using a gradient-descent-style rule. It maps conviction directly into position sizes under portfolio-level constraints, while integrating IC governance and analyst/AI evaluation.
 
 In plain English: instead of treating conviction as a vague label ("high conviction" or "low conviction"), CGF computes a numeric score per position based on how much the thesis is holding up against new data. When the thesis deteriorates — missed forecasts, structural breaks, vol regime shifts — conviction adjusts down. When it holds or improves, conviction adjusts up. That score drives position sizing.
